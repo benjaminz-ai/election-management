@@ -15,6 +15,7 @@ import {
   UserCog,
   LogOut,
   Snowflake,
+  BarChart3,
 } from "lucide-react";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -33,6 +34,7 @@ const commonLinks = [
   { href: "/group-leaders", label: "ראשי קבוצה", icon: UserCheck },
   { href: "/division-heads", label: "ראשי אגף", icon: Shield },
   { href: "/search", label: "חיפוש", icon: Search },
+  { href: "/reports", label: "דוחות חכמים", icon: BarChart3 },
   { href: "/statuses", label: "סטטוסי תמיכה", icon: Tag },
   { href: "/call-statuses", label: "סטטוסי שיחה", icon: MessageSquareMore },
 ];

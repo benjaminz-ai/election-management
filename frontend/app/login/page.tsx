@@ -184,48 +184,6 @@ export default function LoginPage() {
             {loading ? "מתחבר..." : "כניסה למערכת"}
           </button>
         </form>
-
-        {/* Demo credentials hint */}
-        <div
-          style={{
-            marginTop: 28,
-            padding: "16px",
-            background: "#f8fafc",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 10 }}>
-            משתמשי דמה לבדיקה:
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[
-              { label: "מנהל מערכת", email: "admin@election.co.il", pass: "admin123" },
-              { label: "טלמרקטינג", email: "dana@election.co.il", pass: "dana123" },
-            ].map((u) => (
-              <button
-                key={u.email}
-                type="button"
-                onClick={() => { setEmail(u.email); setPassword(u.pass); }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "7px 10px",
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  transition: "border-color 0.15s",
-                }}
-              >
-                <span style={{ fontWeight: 600, color: "#032147" }}>{u.label}</span>
-                <span style={{ color: "#64748b", direction: "ltr" }}>{u.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
