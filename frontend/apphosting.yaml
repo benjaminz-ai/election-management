@@ -8,7 +8,7 @@ runConfig:
 
 env:
   - variable: GMAIL_USER
-    value: wovotetld@gmail.com
+    value: wevotetld@gmail.com
     availability:
       - RUNTIME
   - variable: GMAIL_APP_PASSWORD
@@ -16,7 +16,7 @@ env:
     availability:
       - RUNTIME
   - variable: NEXT_PUBLIC_APP_URL
-    value: https://REPLACE_WITH_YOUR_APP_HOSTING_URL
+    value: https://election-management--election-management-145fc.europe-west4.hosted.app
     availability:
       - BUILD
       - RUNTIME
