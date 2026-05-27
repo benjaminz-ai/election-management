@@ -239,10 +239,10 @@ export default function TelemarketingPage() {
         </p>
       </div>
 
-      <div className="tele-panels">
+      <div style={{ display: "grid", gridTemplateColumns: "380px 1fr", gap: 24, alignItems: "start" }}>
 
         {/* ── Filter + List panel ──────────────────────────────────────────── */}
-        <div className="tele-list-panel">
+        <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #f1f5f9", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", overflow: "hidden" }}>
 
           {/* Filters */}
           <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #f1f5f9", background: "#fafbfc" }}>
@@ -353,7 +353,7 @@ export default function TelemarketingPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 
               {/* Nav + voter card */}
-              <div className="tele-list-panel">
+              <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #f1f5f9", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", overflow: "hidden" }}>
                 {/* Nav bar */}
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 18px", background: "#032147" }}>
                   <button onClick={() => handleNavigate("prev")} disabled={filteredVoters.length <= 1}
@@ -588,17 +588,7 @@ export default function TelemarketingPage() {
         </div>
       </div>
 
-      <style>{`
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .tele-panels { display: flex; gap: 20px; align-items: start; }
-        .tele-list-panel { background: #fff; border-radius: 14px; border: 1.5px solid #f1f5f9; box-shadow: 0 2px 12px rgba(0,0,0,.06); overflow: hidden; flex: 0 0 360px; min-width: 280px; }
-        .tele-detail-panel { flex: 1; min-width: 0; }
-        @media (max-width: 768px) {
-          .tele-panels { flex-direction: column; }
-          .tele-list-panel { flex: none !important; width: 100%; max-height: 44vh; overflow-y: auto; }
-          .tele-detail-panel { width: 100%; }
-        }
-      `}</style>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
