@@ -1,0 +1,22 @@
+runConfig:
+  runtime: nodejs20
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+  maxInstances: 100
+  minInstances: 0
+
+env:
+  - variable: GMAIL_USER
+    value: wovotetld@gmail.com
+    availability:
+      - RUNTIME
+  - variable: GMAIL_APP_PASSWORD
+    secret: GMAIL_APP_PASSWORD
+    availability:
+      - RUNTIME
+  - variable: NEXT_PUBLIC_APP_URL
+    value: https://REPLACE_WITH_YOUR_APP_HOSTING_URL
+    availability:
+      - BUILD
+      - RUNTIME
