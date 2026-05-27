@@ -57,6 +57,7 @@ type StoreContextType = {
   addUser: (user: AppUser) => void;
   updateUser: (user: AppUser) => void;
   freezeUser: (id: string, frozen: boolean) => void;
+  refreshUsers: () => Promise<void>;
 };
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -468,6 +469,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateDoc(doc(db, "users", id), { isFrozen: frozen }).catch(console.error);
   };
 
+
+  // ── Refresh Users ─────────────────────────────────────────────────────────────
+
+  const refreshUsers = async (): Promise<void> => {
+    try {
+      const snap = await getDocs(collection(db, "users"));
+      const users = snap.docs.map((d) => d.data() as AppUser);
+      if (users.length > 0) {
+        setState((s) => ({ ...s, users }));
+      }
+    } catch (e) {
+      console.error("refreshUsers failed", e);
+    }
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -495,6 +511,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addUser,
         updateUser,
         freezeUser,
+        refreshUsers,
       }}
     >
       {children}

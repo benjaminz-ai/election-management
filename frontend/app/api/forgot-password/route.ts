@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, query, where, getDocs, addDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  writeBatch,
+} from "firebase/firestore";
 import nodemailer from "nodemailer";
 import { randomUUID } from "crypto";
 
@@ -36,14 +46,30 @@ export async function POST(req: NextRequest) {
 
     const userDoc = snap.docs[0];
     const userData = userDoc.data();
-    const userId = userDoc.id;
+    const userId = userDoc.id; // Firestore document ID = user's id field
 
-    // Generate token
+    // Invalidate ALL previous unused reset tokens for this user.
+    // This ensures only the latest reset link is valid — old emails become useless.
+    const resetsRef = collection(db, "passwordResets");
+    const oldTokensQuery = query(
+      resetsRef,
+      where("userId", "==", userId),
+      where("used", "==", false)
+    );
+    const oldTokensSnap = await getDocs(oldTokensQuery);
+    if (!oldTokensSnap.empty) {
+      const batch = writeBatch(db);
+      oldTokensSnap.docs.forEach((d) => {
+        batch.update(doc(db, "passwordResets", d.id), { used: true });
+      });
+      await batch.commit();
+    }
+
+    // Generate new token
     const token = randomUUID();
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
-    // Store reset token in Firestore
-    const resetsRef = collection(db, "passwordResets");
+    // Store new reset token
     await addDoc(resetsRef, {
       token,
       userId,
@@ -83,6 +109,7 @@ export async function POST(req: NextRequest) {
             </a>
           </div>
           <p style="color: #666; font-size: 14px;">הקישור יפוג תוך שעה אחת.</p>
+          <p style="color: #e55; font-size: 14px;"><strong>שים לב:</strong> אם שלחת מספר בקשות איפוס, רק הקישור האחרון תקף.</p>
           <p style="color: #666; font-size: 14px;">אם לא ביקשת לאפס את הסיסמה, אנא התעלם ממייל זה.</p>
           <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
           <p style="color: #999; font-size: 12px;">מערכת ניהול בחירות</p>

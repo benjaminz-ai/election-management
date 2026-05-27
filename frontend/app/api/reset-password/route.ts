@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     // Check if already used
     if (resetData.used) {
-      return NextResponse.json({ error: "הקישור כבר שומש" }, { status: 400 });
+      return NextResponse.json({ error: "הקישור כבר שומש. אנא בקש קישור חדש." }, { status: 400 });
     }
 
     // Check expiry
@@ -57,22 +57,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "הקישור פג תוקף. אנא בקש קישור חדש." }, { status: 400 });
     }
 
-    // Find user and update password
+    // The userId stored in passwordResets is the Firestore document ID of the user
     const userId = resetData.userId as string;
-    const usersRef = collection(db, "users");
-    const userQuery = query(usersRef, where("id", "==", userId));
-    const userSnap = await getDocs(userQuery);
 
-    if (userSnap.empty) {
-      return NextResponse.json({ error: "משתמש לא נמצא" }, { status: 404 });
-    }
-
-    const userDocRef = doc(db, "users", userSnap.docs[0].id);
+    // Update password directly using the document ID (no secondary query needed)
+    const userDocRef = doc(db, "users", userId);
     await updateDoc(userDocRef, { password: newPassword });
 
     // Mark token as used
-    const resetDocRef = doc(db, "passwordResets", resetDoc.id);
-    await updateDoc(resetDocRef, { used: true });
+    await updateDoc(doc(db, "passwordResets", resetDoc.id), { used: true });
 
     return NextResponse.json({ success: true });
   } catch (error) {

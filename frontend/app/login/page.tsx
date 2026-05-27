@@ -21,19 +21,24 @@ export default function LoginPage() {
     if (currentUser) router.replace("/dashboard");
   }, [currentUser, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setTimeout(() => {
-      const ok = login(email, password);
-      if (ok) {
+    try {
+      const result = await login(email, password);
+      if (result === "ok") {
         router.replace("/dashboard");
+      } else if (result === "frozen") {
+        setError("חשבון זה הוקפא. פנה למנהל המערכת.");
       } else {
-        setError("אימייל או סיסמה שגויים, או שהמשתמש מוקפא.");
-        setLoading(false);
+        setError("אימייל או סיסמה שגויים.");
       }
-    }, 350);
+    } catch {
+      setError("שגיאה בהתחברות. נסה שנית.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -89,7 +94,7 @@ export default function LoginPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@election.co.il"
+              placeholder="user@example.com"
               required
               autoComplete="email"
               dir="ltr"
@@ -132,17 +137,10 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Forgot Password link */}
+          {/* Forgot Password */}
           <div style={{ textAlign: "left", marginBottom: 22 }}>
-            <Link
-              href="/forgot-password"
-              style={{
-                fontSize: 13,
-                color: "#209dd7",
-                textDecoration: "none",
-                fontWeight: 500,
-              }}
-            >
+            <Link href="/forgot-password"
+              style={{ fontSize: 13, color: "#209dd7", textDecoration: "none", fontWeight: 500 }}>
               שכחת סיסמה?
             </Link>
           </div>
@@ -184,48 +182,6 @@ export default function LoginPage() {
             {loading ? "מתחבר..." : "כניסה למערכת"}
           </button>
         </form>
-
-        {/* Demo credentials hint */}
-        <div
-          style={{
-            marginTop: 28,
-            padding: "16px",
-            background: "#f8fafc",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-          }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#475569", marginBottom: 10 }}>
-            משתמשי דמה לבדיקה:
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {[
-              { label: "מנהל מערכת", email: "admin@election.co.il", pass: "admin123" },
-              { label: "טלמרקטינג", email: "dana@election.co.il", pass: "dana123" },
-            ].map((u) => (
-              <button
-                key={u.email}
-                type="button"
-                onClick={() => { setEmail(u.email); setPassword(u.pass); }}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "7px 10px",
-                  background: "#fff",
-                  border: "1px solid #e2e8f0",
-                  borderRadius: 8,
-                  cursor: "pointer",
-                  fontSize: 12,
-                  transition: "border-color 0.15s",
-                }}
-              >
-                <span style={{ fontWeight: 600, color: "#032147" }}>{u.label}</span>
-                <span style={{ color: "#64748b", direction: "ltr" }}>{u.email}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );
