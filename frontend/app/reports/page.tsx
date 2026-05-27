@@ -1,21 +1,13 @@
 "use client";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag } from "lucide-react";
+import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote } from "lucide-react";
 import { Voter, Status } from "@/types";
 
-type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | null;
+type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | "voting" | null;
 
-interface StatusBreakdown {
-  [statusName: string]: { count: number; color: string; category: string };
-}
-interface Stats {
-  breakdown: StatusBreakdown;
-  total: number;
-  supporters: number;
-  opponents: number;
-  undecided: number;
-}
+interface StatusBreakdown { [statusName: string]: { count: number; color: string; category: string }; }
+interface Stats { breakdown: StatusBreakdown; total: number; supporters: number; opponents: number; undecided: number; voted: number; }
 
 function StatusBar({ breakdown, total }: { breakdown: StatusBreakdown; total: number }) {
   if (total === 0) return <div style={{ color: "#94a3b8", fontSize: 13, marginTop: 6 }}>אין בוחרים</div>;
@@ -40,6 +32,21 @@ function StatusBar({ breakdown, total }: { breakdown: StatusBreakdown; total: nu
   );
 }
 
+function VotingBar({ voted, total }: { voted: number; total: number }) {
+  const pct = total > 0 ? Math.round((voted / total) * 100) : 0;
+  return (
+    <div style={{ marginTop: 6 }}>
+      <div style={{ display: "flex", height: 8, borderRadius: 6, overflow: "hidden", background: "#f1f5f9" }}>
+        <div style={{ width: `${pct}%`, background: "#22c55e", transition: "width 0.5s" }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 11 }}>
+        <span style={{ color: "#16a34a", fontWeight: 600 }}>{voted} הצביעו ({pct}%)</span>
+        <span style={{ color: "#94a3b8" }}>{total - voted} לא הצביעו</span>
+      </div>
+    </div>
+  );
+}
+
 function SummaryCard({ label, value, color, icon }: { label: string; value: number; color: string; icon: React.ReactNode }) {
   return (
     <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
@@ -59,20 +66,15 @@ function ReportCard({ title, description, icon, reportKey, activeReport, onToggl
   const isActive = activeReport === reportKey;
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-      <div
-        style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderBottom: isActive ? "1px solid #e2e8f0" : "none", flexWrap: "wrap" }}
-        onClick={() => onToggle(isActive ? null : reportKey)}
-      >
+      <div style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderBottom: isActive ? "1px solid #e2e8f0" : "none", flexWrap: "wrap" }}
+        onClick={() => onToggle(isActive ? null : reportKey)}>
         <div style={{ background: "#209dd722", borderRadius: 10, padding: 10, color: "#209dd7", flexShrink: 0 }}>{icon}</div>
         <div style={{ flex: 1, minWidth: 120 }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{description}</div>
         </div>
-        <button
-          className="btn-primary"
-          style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
-          onClick={(e) => { e.stopPropagation(); onToggle(isActive ? null : reportKey); }}
-        >
+        <button className="btn-primary" style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
+          onClick={(e) => { e.stopPropagation(); onToggle(isActive ? null : reportKey); }}>
           {loading && isActive ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : isActive ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           {isActive ? "סגור" : "הפק דוח"}
         </button>
@@ -97,21 +99,15 @@ export default function ReportsPage() {
   const [expandedLeaders, setExpandedLeaders] = useState<Set<string>>(new Set());
 
   const handleToggle = (key: ReportKey) => {
-    if (key && key !== activeReport) {
-      setReportLoading(true);
-      setActiveReport(key);
-      setTimeout(() => setReportLoading(false), 300);
-    } else {
-      setActiveReport(key);
-      setReportLoading(false);
-    }
+    if (key && key !== activeReport) { setReportLoading(true); setActiveReport(key); setTimeout(() => setReportLoading(false), 300); }
+    else { setActiveReport(key); setReportLoading(false); }
   };
 
   const statusMap = new Map<string, Status>(statuses.map(s => [s.id, s]));
 
   function buildStats(voterList: Voter[]): Stats {
     const breakdown: StatusBreakdown = {};
-    let supporters = 0, opponents = 0, undecided = 0;
+    let supporters = 0, opponents = 0, undecided = 0, voted = 0;
     for (const v of voterList) {
       const st = v.statusId ? statusMap.get(v.statusId) : null;
       const name = st?.name ?? "ללא סטטוס";
@@ -122,13 +118,16 @@ export default function ReportsPage() {
       if (cat === "supporter") supporters++;
       else if (cat === "opponent") opponents++;
       else if (cat === "undecided") undecided++;
+      if (v.hasVoted) voted++;
     }
-    return { breakdown, total: voterList.length, supporters, opponents, undecided };
+    return { breakdown, total: voterList.length, supporters, opponents, undecided, voted };
   }
 
   const allStats = buildStats(voters);
+  const totalVoted = voters.filter(v => v.hasVoted).length;
+  const votingPct = voters.length > 0 ? Math.round((totalVoted / voters.length) * 100) : 0;
 
-  // Report 1 — per leader
+  // Reports data
   const leaderReport = groupLeaders.map(leader => {
     const myGroups = groups.filter(g => g.groupLeaderId === leader.id);
     const voterSet = new Set(myGroups.flatMap(g => g.voterIds));
@@ -137,13 +136,11 @@ export default function ReportsPage() {
     return { leader, stats, groupStats };
   });
 
-  // Report 2 — per group
   const groupReport = groups.map(g => {
     const leader = groupLeaders.find(l => l.id === g.groupLeaderId);
     return { group: g, leader, ...buildStats(voters.filter(v => g.voterIds.includes(v.id))) };
   }).sort((a, b) => b.supporters - a.supporters);
 
-  // Report 3 — per division head
   const divReport = divisionHeads.map(dh => {
     const myLeaders = groupLeaders.filter(l => l.divisionHeadId === dh.id);
     const voterSet = new Set(myLeaders.flatMap(l => groups.filter(g => g.groupLeaderId === l.id).flatMap(g => g.voterIds)));
@@ -156,7 +153,6 @@ export default function ReportsPage() {
     return { dh, stats, leaderBreakdown, groupCount };
   });
 
-  // Report 4 — families by address
   const familyMap: Record<string, { label: string; voters: Voter[]; apartments: Record<string, Voter[]> }> = {};
   voters.forEach(v => {
     const addr = v.address;
@@ -169,24 +165,28 @@ export default function ReportsPage() {
       familyMap[key].apartments[addr.apartment].push(v);
     }
   });
-  const familyReport = Object.values(familyMap)
-    .filter(f => f.voters.length > 1)
-    .map(f => {
-      const stats = buildStats(f.voters);
-      const mixed = stats.supporters > 0 && stats.opponents > 0;
-      const aptEntries = Object.entries(f.apartments).filter(([, av]) => av.length > 1).map(([apt, av]) => ({ apt, ...buildStats(av) }));
-      return { ...f, stats, mixed, aptEntries };
-    })
-    .sort((a, b) => b.stats.total - a.stats.total);
+  const familyReport = Object.values(familyMap).filter(f => f.voters.length > 1).map(f => {
+    const stats = buildStats(f.voters);
+    const mixed = stats.supporters > 0 && stats.opponents > 0;
+    const aptEntries = Object.entries(f.apartments).filter(([, av]) => av.length > 1).map(([apt, av]) => ({ apt, ...buildStats(av) }));
+    return { ...f, stats, mixed, aptEntries };
+  }).sort((a, b) => b.stats.total - a.stats.total);
 
-  // Report 5 — geographic
   const cityMap: Record<string, Voter[]> = {};
-  voters.forEach(v => {
-    const city = v.address?.city || "לא ידוע";
-    if (!cityMap[city]) cityMap[city] = [];
-    cityMap[city].push(v);
-  });
+  voters.forEach(v => { const city = v.address?.city || "לא ידוע"; if (!cityMap[city]) cityMap[city] = []; cityMap[city].push(v); });
   const geoReport = Object.entries(cityMap).map(([city, cv]) => ({ city, ...buildStats(cv) })).sort((a, b) => b.total - a.total);
+
+  // Voting report — by group
+  const votingByGroup = groups.map(g => {
+    const gVoters = voters.filter(v => g.voterIds.includes(v.id));
+    const voted = gVoters.filter(v => v.hasVoted).length;
+    const leader = groupLeaders.find(l => l.id === g.groupLeaderId);
+    return { group: g, leader, total: gVoters.length, voted };
+  }).filter(r => r.total > 0).sort((a, b) => (b.voted / b.total) - (a.voted / a.total));
+
+  const votingByCity = Object.entries(cityMap).map(([city, cv]) => ({
+    city, total: cv.length, voted: cv.filter(v => v.hasVoted).length
+  })).filter(r => r.total > 0).sort((a, b) => (b.voted / b.total) - (a.voted / a.total));
 
   return (
     <div>
@@ -195,17 +195,98 @@ export default function ReportsPage() {
         <p style={{ color: "#64748b", marginTop: 4, fontSize: 14 }}>לחץ "הפק דוח" לדוח דינמי בזמן אמת</p>
       </div>
 
-      {/* Summary — aggregated by category */}
-      <div className="resp-grid-4" style={{ marginBottom: 24 }}>
+      {/* Summary cards */}
+      <div className="resp-grid-5" style={{ marginBottom: 24 }}>
         <SummaryCard label="סך מצביעים" value={allStats.total} color="#3b82f6" icon={<Users size={18} />} />
-        <SummaryCard label="תומכים (כל הסוגים)" value={allStats.supporters} color="#22c55e" icon={<Tag size={18} />} />
-        <SummaryCard label="מתנגדים (כל הסוגים)" value={allStats.opponents} color="#ef4444" icon={<Tag size={18} />} />
+        <SummaryCard label="תומכים" value={allStats.supporters} color="#22c55e" icon={<Tag size={18} />} />
+        <SummaryCard label="מתנגדים" value={allStats.opponents} color="#ef4444" icon={<Tag size={18} />} />
         <SummaryCard label="מתלבטים" value={allStats.undecided} color="#f59e0b" icon={<Tag size={18} />} />
+        <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
+          <div style={{ background: "#22c55e22", borderRadius: 10, padding: 10, color: "#22c55e", flexShrink: 0 }}><Vote size={18} /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--dark-navy)" }}>{totalVoted} <span style={{ fontSize: 13, color: "#64748b", fontWeight: 400 }}>מתוך {allStats.total}</span></div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>הצביעו ({votingPct}%)</div>
+            <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
+              <div style={{ width: `${votingPct}%`, height: "100%", background: "#22c55e", transition: "width 0.5s" }} />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* 1 — leaders */}
+        {/* Voting rates report */}
+        <ReportCard title="שיעורי הצבעה" description="כמה בוחרים הצביעו — לפי קבוצה ועיר" icon={<Vote size={18} />} reportKey="voting" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Overall */}
+            <div style={{ padding: "16px 18px", background: "#f0fdf4", borderRadius: 12, border: "1.5px solid #86efac" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#166534" }}>סה"כ</span>
+                <span style={{ fontSize: 24, fontWeight: 800, color: "#16a34a" }}>{votingPct}%</span>
+              </div>
+              <VotingBar voted={totalVoted} total={allStats.total} />
+            </div>
+
+            {/* By group */}
+            {votingByGroup.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#475569", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <Users size={13} /> לפי קבוצה
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {votingByGroup.map(({ group, leader, total, voted }) => {
+                    const pct = total > 0 ? Math.round((voted / total) * 100) : 0;
+                    return (
+                      <div key={group.id} style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <div>
+                            <span style={{ fontWeight: 600, fontSize: 13 }}>{group.name}</span>
+                            {leader && <span style={{ fontSize: 11, color: "#94a3b8", marginRight: 8 }}>ר"ק: {leader.firstName} {leader.lastName}</span>}
+                          </div>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: pct >= 50 ? "#16a34a" : pct >= 25 ? "#d97706" : "#dc2626" }}>{pct}%</span>
+                        </div>
+                        <VotingBar voted={voted} total={total} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* By city */}
+            {votingByCity.length > 0 && (
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#475569", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                  <MapPin size={13} /> לפי עיר
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {votingByCity.map(({ city, total, voted }) => {
+                    const pct = total > 0 ? Math.round((voted / total) * 100) : 0;
+                    return (
+                      <div key={city} style={{ padding: "10px 14px", border: "1px solid #e2e8f0", borderRadius: 10 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontWeight: 600, fontSize: 13 }}>{city}</span>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: pct >= 50 ? "#16a34a" : pct >= 25 ? "#d97706" : "#dc2626" }}>{pct}%</span>
+                        </div>
+                        <VotingBar voted={voted} total={total} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {totalVoted === 0 && (
+              <div style={{ textAlign: "center", padding: "32px", color: "#94a3b8", background: "#fafbfc", borderRadius: 10 }}>
+                <Vote size={28} color="#d1d5db" style={{ margin: "0 auto 8px", display: "block" }} />
+                <div style={{ fontSize: 14 }}>עדיין לא תועדו הצבעות</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>סמן "הצביע" בטפסי השיחות בטלמרקטינג</div>
+              </div>
+            )}
+          </div>
+        </ReportCard>
+
+        {/* Leaders */}
         <ReportCard title="ניתוח ראשי קבוצה" description="פירוט לכל ראש קבוצה עם drill-down לקבוצות" icon={<Users size={18} />} reportKey="leaders" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {leaderReport.length === 0 ? <p style={{ color: "#94a3b8" }}>אין ראשי קבוצה</p> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -219,14 +300,18 @@ export default function ReportsPage() {
                       <span style={{ fontSize: 12, color: "#22c55e" }}>{stats.supporters} תומכים</span>
                       <span style={{ fontSize: 12, color: "#94a3b8" }}> · </span>
                       <span style={{ fontSize: 12, color: "#ef4444" }}>{stats.opponents} מתנגדים</span>
+                      {stats.voted > 0 && <span style={{ fontSize: 12, color: "#16a34a", marginRight: 8 }}> · ✓ {stats.voted} הצביעו</span>}
                     </div>
                     {expandedLeaders.has(leader.id) ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                   </div>
                   <div style={{ padding: "8px 16px 12px" }}><StatusBar breakdown={stats.breakdown} total={stats.total} /></div>
-                  {expandedLeaders.has(leader.id) && groupStats.map(({ group, breakdown, total, supporters, opponents }) => (
+                  {expandedLeaders.has(leader.id) && groupStats.map(({ group, breakdown, total, supporters, opponents, voted }) => (
                     <div key={group.id} style={{ padding: "8px 16px 12px", borderTop: "1px solid #f1f5f9", paddingRight: 28 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{group.name}</span>
-                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span></span>
+                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>
+                        {total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span>
+                        {voted > 0 && <span style={{ color: "#16a34a" }}> · {voted} הצביעו</span>}
+                      </span>
                       <StatusBar breakdown={breakdown} total={total} />
                     </div>
                   ))}
@@ -236,17 +321,20 @@ export default function ReportsPage() {
           )}
         </ReportCard>
 
-        {/* 2 — groups */}
+        {/* Groups */}
         <ReportCard title="ניתוח קבוצות" description="פירוט לכל קבוצה, ממוין לפי תומכים" icon={<BarChart3 size={18} />} reportKey="groups" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {groupReport.map(({ group, leader, breakdown, total, supporters, opponents }) => (
+            {groupReport.map(({ group, leader, breakdown, total, supporters, opponents, voted }) => (
               <div key={group.id} style={{ padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
                   <div>
                     <span style={{ fontWeight: 600 }}>{group.name}</span>
                     {leader && <span style={{ fontSize: 12, color: "#64748b", marginRight: 8 }}>ר"ק: {leader.firstName} {leader.lastName}</span>}
                   </div>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span></span>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>
+                    {total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span>
+                    {voted > 0 && <span style={{ color: "#16a34a" }}> · {voted} הצביעו</span>}
+                  </span>
                 </div>
                 <StatusBar breakdown={breakdown} total={total} />
               </div>
@@ -254,7 +342,7 @@ export default function ReportsPage() {
           </div>
         </ReportCard>
 
-        {/* 3 — division heads */}
+        {/* Divisions */}
         <ReportCard title="ניתוח ראשי אגף" description="צבירה לפי ראשי אגפים עם פירוט ראשי קבוצה" icon={<GitMerge size={18} />} reportKey="divisions" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {divReport.length === 0 ? <p style={{ color: "#94a3b8" }}>אין ראשי אגף</p> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -263,12 +351,16 @@ export default function ReportsPage() {
                   <div style={{ padding: "12px 16px", background: "#f8fafc" }}>
                     <span style={{ fontWeight: 600 }}>{dh.firstName} {dh.lastName}</span>
                     <span style={{ fontSize: 12, color: "#64748b", marginRight: 8 }}>{groupCount} קבוצות · {stats.total} בוחרים · <span style={{ color: "#22c55e" }}>{stats.supporters} תומכים</span></span>
+                    {stats.voted > 0 && <span style={{ fontSize: 12, color: "#16a34a" }}> · {stats.voted} הצביעו</span>}
                   </div>
                   <div style={{ padding: "8px 16px 12px" }}><StatusBar breakdown={stats.breakdown} total={stats.total} /></div>
-                  {leaderBreakdown.map(({ leader, breakdown, total, supporters }) => (
+                  {leaderBreakdown.map(({ leader, breakdown, total, supporters, voted }) => (
                     <div key={leader.id} style={{ padding: "8px 16px 12px", borderTop: "1px solid #f1f5f9", paddingRight: 28 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{leader.firstName} {leader.lastName}</span>
-                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span></span>
+                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>
+                        {total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span>
+                        {voted > 0 && <span style={{ color: "#16a34a" }}> · {voted} הצביעו</span>}
+                      </span>
                       <StatusBar breakdown={breakdown} total={total} />
                     </div>
                   ))}
@@ -278,8 +370,8 @@ export default function ReportsPage() {
           )}
         </ReportCard>
 
-        {/* 4 — families */}
-        <ReportCard title="הצלבת משפחות" description="קיבוץ לפי כתובת: עיר + רחוב + מספר. מפוצלות = תומכים ומתנגדים יחד" icon={<Users size={18} />} reportKey="families" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+        {/* Families */}
+        <ReportCard title="הצלבת משפחות" description="קיבוץ לפי כתובת: עיר + רחוב + מספר" icon={<Users size={18} />} reportKey="families" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {familyReport.length === 0
             ? <p style={{ color: "#94a3b8" }}>לא נמצאו שתי נפשות באותה כתובת</p>
             : (
@@ -291,7 +383,10 @@ export default function ReportsPage() {
                         {f.label}
                         {f.mixed && <span style={{ fontSize: 12, color: "#d97706", marginRight: 8 }}>⚠ מפוצלת</span>}
                       </div>
-                      <span style={{ fontSize: 13, color: "#64748b" }}>{f.stats.total} נפשות · <span style={{ color: "#22c55e" }}>{f.stats.supporters}✓</span> <span style={{ color: "#ef4444" }}>{f.stats.opponents}✗</span></span>
+                      <span style={{ fontSize: 13, color: "#64748b" }}>
+                        {f.stats.total} נפשות · <span style={{ color: "#22c55e" }}>{f.stats.supporters}✓</span> <span style={{ color: "#ef4444" }}>{f.stats.opponents}✗</span>
+                        {f.stats.voted > 0 && <span style={{ color: "#16a34a" }}> · {f.stats.voted} הצביעו</span>}
+                      </span>
                     </div>
                     <StatusBar breakdown={f.stats.breakdown} total={f.stats.total} />
                     {f.aptEntries.map(({ apt, breakdown, total }) => (
@@ -306,14 +401,17 @@ export default function ReportsPage() {
             )}
         </ReportCard>
 
-        {/* 5 — geographic */}
+        {/* Geographic */}
         <ReportCard title="מפת תמיכה גיאוגרפית" description="פירוט לפי עיר / יישוב" icon={<MapPin size={18} />} reportKey="geo" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {geoReport.map(({ city, breakdown, total, supporters, opponents }) => (
+            {geoReport.map(({ city, breakdown, total, supporters, opponents, voted }) => (
               <div key={city} style={{ padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
                   <span style={{ fontWeight: 600 }}>{city}</span>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span></span>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>
+                    {total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span>
+                    {voted > 0 && <span style={{ color: "#16a34a" }}> · {voted} הצביעו</span>}
+                  </span>
                 </div>
                 <StatusBar breakdown={breakdown} total={total} />
               </div>
@@ -324,9 +422,10 @@ export default function ReportsPage() {
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .resp-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
-        @media (max-width: 768px) { .resp-grid-4 { grid-template-columns: repeat(2,1fr); } }
-        @media (max-width: 480px) { .resp-grid-4 { grid-template-columns: 1fr; } }
+        .resp-grid-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; }
+        @media (max-width: 1024px) { .resp-grid-5 { grid-template-columns: repeat(3,1fr); } }
+        @media (max-width: 768px) { .resp-grid-5 { grid-template-columns: repeat(2,1fr); } }
+        @media (max-width: 480px) { .resp-grid-5 { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   );

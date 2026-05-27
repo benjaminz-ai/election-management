@@ -14,6 +14,7 @@ export type Voter = {
   groupIds: string[];
   statusId?: string;
   lastCallStatusId?: string;
+  hasVoted?: boolean;
 };
 
 export type Group = {

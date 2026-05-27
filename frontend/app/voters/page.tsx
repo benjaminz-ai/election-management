@@ -5,7 +5,7 @@ import { useStore } from "@/lib/store";
 import { Voter } from "@/types";
 import { generateId, formatAddress } from "@/lib/utils";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, CheckSquare } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
@@ -22,21 +22,28 @@ export default function VotersPage() {
   const statusMap = new Map(statuses.map(s => [s.id, s]));
 
   const [search, setSearch] = useState("");
+  const [filterVoted, setFilterVoted] = useState<"" | "yes" | "no">("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Voter | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Voter | null>(null);
   const [form, setForm] = useState<Voter>(emptyVoter());
 
+  const votedCount = useMemo(() => voters.filter(v => v.hasVoted).length, [voters]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return voters;
-    return voters.filter(v =>
-      `${v.firstName} ${v.lastName}`.toLowerCase().includes(q) ||
-      v.address.city?.toLowerCase().includes(q) ||
-      v.address.street?.toLowerCase().includes(q) ||
-      v.uniqueId?.includes(q) || v.phone?.includes(q)
-    );
-  }, [voters, search]);
+    return voters.filter(v => {
+      if (filterVoted === "yes" && !v.hasVoted) return false;
+      if (filterVoted === "no" && v.hasVoted) return false;
+      if (!q) return true;
+      return (
+        `${v.firstName} ${v.lastName}`.toLowerCase().includes(q) ||
+        v.address.city?.toLowerCase().includes(q) ||
+        v.address.street?.toLowerCase().includes(q) ||
+        v.uniqueId?.includes(q) || v.phone?.includes(q)
+      );
+    });
+  }, [voters, search, filterVoted]);
 
   const { visible, hasMore, loadMore, showing, total } = usePagination(filtered);
 
@@ -59,16 +66,36 @@ export default function VotersPage() {
             <span className="page-accent" />
             <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>בוחרים</h1>
           </div>
-          <p style={{ color: "var(--gray-text)", fontSize: 13, marginTop: 3, marginRight: 14 }}>{voters.length} בוחרים רשומים</p>
+          <p style={{ color: "var(--gray-text)", fontSize: 13, marginTop: 3, marginRight: 14 }}>
+            {voters.length} בוחרים רשומים
+            {votedCount > 0 && (
+              <span style={{ marginRight: 10, color: "#16a34a", fontWeight: 600 }}>
+                · {votedCount} הצביעו ({Math.round((votedCount / voters.length) * 100)}%)
+              </span>
+            )}
+          </p>
         </div>
         <button className="btn-primary" onClick={openAdd}><Plus size={14} /> הוסף בוחר</button>
       </div>
 
-      {/* Search */}
-      <div style={{ marginBottom: 16 }}>
-        <div className="search-wrap">
+      {/* Search + voted filter */}
+      <div style={{ marginBottom: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
           <Search size={15} className="search-icon" />
           <input className="input" placeholder="חיפוש לפי שם, עיר, רחוב, ת.ז., טלפון..." value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {(["", "yes", "no"] as const).map((opt) => (
+            <button key={opt} onClick={() => setFilterVoted(opt)}
+              style={{
+                padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                border: `1.5px solid ${filterVoted === opt ? (opt === "yes" ? "#22c55e" : opt === "no" ? "#ef4444" : "#209dd7") : "var(--border)"}`,
+                background: filterVoted === opt ? (opt === "yes" ? "#f0fdf4" : opt === "no" ? "#fef2f2" : "rgba(32,157,215,0.08)") : "#fff",
+                color: filterVoted === opt ? (opt === "yes" ? "#16a34a" : opt === "no" ? "#dc2626" : "var(--blue-primary)") : "var(--text-secondary)",
+              }}>
+              {opt === "" ? "הכל" : opt === "yes" ? "✓ הצביע" : "✗ לא הצביע"}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -82,6 +109,7 @@ export default function VotersPage() {
                 <th className="hide-mobile">טלפון</th>
                 <th className="hide-mobile">כתובת</th>
                 <th>סטטוס</th>
+                <th>הצביע</th>
                 <th className="hide-mobile">קבוצות</th>
                 <th style={{ width: 80 }}></th>
               </tr>
@@ -118,6 +146,11 @@ export default function VotersPage() {
                         ? <span style={{ background: st.color + "22", color: st.color, borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{st.name}</span>
                         : <span className="badge badge-gray">ללא סטטוס</span>}
                     </td>
+                    <td>
+                      {v.hasVoted
+                        ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#dcfce7", color: "#16a34a", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700 }}>✓ הצביע</span>
+                        : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>}
+                    </td>
                     <td className="hide-mobile">
                       {voterGroups.length === 0
                         ? <span className="badge badge-gray">ללא קבוצה</span>
@@ -142,9 +175,9 @@ export default function VotersPage() {
         {filtered.length === 0 && (
           <div className="empty-state">
             <div className="empty-state-icon"><Users size={28} color="var(--text-muted)" /></div>
-            <h3>{search ? "לא נמצאו תוצאות" : "אין בוחרים"}</h3>
-            <p>{search ? `אין בוחרים התואמים "${search}"` : "לחץ 'הוסף בוחר' כדי להתחיל"}</p>
-            {!search && <button className="btn-primary" onClick={openAdd}><Plus size={14} />הוסף בוחר</button>}
+            <h3>{search || filterVoted ? "לא נמצאו תוצאות" : "אין בוחרים"}</h3>
+            <p>{search ? `אין בוחרים התואמים "${search}"` : filterVoted ? "אין בוחרים בסינון זה" : "לחץ 'הוסף בוחר' כדי להתחיל"}</p>
+            {!search && !filterVoted && <button className="btn-primary" onClick={openAdd}><Plus size={14} />הוסף בוחר</button>}
           </div>
         )}
         {filtered.length > 0 && <ScrollSentinel onIntersect={loadMore} />}
@@ -185,7 +218,7 @@ export default function VotersPage() {
                 </div>
               </div>
 
-              <div style={{ marginBottom: 4 }}>
+              <div style={{ marginBottom: 14 }}>
                 <label className="label" style={{ marginBottom: 8 }}>שיוך לקבוצות</label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {groups.map(g => {
