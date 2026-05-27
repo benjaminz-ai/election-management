@@ -78,6 +78,7 @@ export default function VotersPage() {
   const [showColMenu, setShowColMenu] = useState(false);
   const dragColRef = useRef<ColId | null>(null);
   const dragOverColRef = useRef<ColId | null>(null);
+  const [tableScrollEl, setTableScrollEl] = useState<HTMLDivElement | null>(null);
 
   // Form
   const [showForm, setShowForm] = useState(false);
@@ -281,7 +282,7 @@ export default function VotersPage() {
 
       {/* ── Scrollable table ───────────────────────────────────────────────── */}
       <div className="card" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div ref={setTableScrollEl} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)", position: "sticky", top: 0, zIndex: 2 }}>
@@ -343,7 +344,7 @@ export default function VotersPage() {
               {!search && !filterVoted && <button className="btn-primary" onClick={openAdd}><Plus size={14} />הוסף בוחר</button>}
             </div>
           )}
-          {filtered.length > 0 && <ScrollSentinel onIntersect={loadMore} />}
+          {filtered.length > 0 && <ScrollSentinel onIntersect={loadMore} root={tableScrollEl} />}
         </div>
         <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
       </div>
