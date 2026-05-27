@@ -123,7 +123,7 @@ export default function TelemarketingPage() {
   // Select voter
   const handleSelectVoter = useCallback((v: Voter) => {
     setSelectedVoterId(v.id);
-    setFormCallStatusId(callStatuses[0]?.id ?? "");
+    setFormCallStatusId(v.lastCallStatusId ?? callStatuses[0]?.id ?? "");
     setFormStatusId(v.statusId ?? defaultStatusId);
     setFormHasVoted(v.hasVoted ?? false);
     setFormNotes("");
@@ -309,7 +309,7 @@ export default function TelemarketingPage() {
                   const avatarColor = stringToColor(v.id);
                   return (
                     <button key={v.id} onClick={() => handleSelectVoter(v)}
-                      style={{ width: "100%", padding: "10px 14px", display: "flex", alignItems: "center", gap: 11, background: isSelected ? "#f0f7ff" : "#fff", borderBottom: "1px solid #f1f5f9", borderRight: isSelected ? "3px solid #209dd7" : "3px solid transparent", cursor: "pointer", textAlign: "right", transition: "background 0.12s" }}>
+                      style={{ width: "100%", padding: "10px 14px", display: "flex", alignItems: "center", gap: 11, background: isSelected ? "#f0f7ff" : "#fff", border: "none", borderBottom: "1px solid var(--border, #f1f5f9)", borderRight: isSelected ? "3px solid #209dd7" : "3px solid transparent", cursor: "pointer", textAlign: "right", transition: "background 0.12s" }}>
                       <div style={{ flexShrink: 0, width: 38, height: 38, borderRadius: "50%", background: isSelected ? "#209dd7" : avatarColor, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 13, transition: "background 0.12s", position: "relative" }}>
                         {getInitials(v.firstName, v.lastName)}
                         {v.hasVoted && (
