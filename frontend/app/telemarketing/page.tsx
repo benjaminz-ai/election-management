@@ -201,7 +201,7 @@ export default function TelemarketingPage() {
             </div>
 
             {/* Row 1: status + call status */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 7 }}>
+            <div className="filter-row-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 7 }}>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "#888", marginBottom: 3, fontWeight: 600 }}>סטטוס תמיכה</label>
                 <select value={filterStatusId} onChange={(e) => setFilterStatusId(e.target.value)}
@@ -221,7 +221,7 @@ export default function TelemarketingPage() {
             </div>
 
             {/* Row 2: group + group leader */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 7 }}>
+            <div className="filter-row-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 7 }}>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "#888", marginBottom: 3, fontWeight: 600 }}>קבוצה</label>
                 <select value={filterGroupId} onChange={(e) => setFilterGroupId(e.target.value)}
@@ -241,7 +241,7 @@ export default function TelemarketingPage() {
             </div>
 
             {/* Row 3: street + voted filter */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 7 }}>
+            <div className="filter-row-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 7 }}>
               <div>
                 <label style={{ display: "block", fontSize: 11, color: "#888", marginBottom: 3, fontWeight: 600 }}>רחוב</label>
                 <input value={filterStreet} onChange={(e) => setFilterStreet(e.target.value)} placeholder="שם רחוב..."

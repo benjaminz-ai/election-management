@@ -278,8 +278,8 @@ export default function VotersPage() {
         </div>
       </div>
 
-      {/* ── Scrollable table ───────────────────────────────────────────────── */}
-      <div className="card" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+      {/* ── Scrollable table (desktop) ─────────────────────────────────────── */}
+      <div className="card desktop-voter-table" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
         <div onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
@@ -341,6 +341,69 @@ export default function VotersPage() {
               <p>{search ? `אין בוחרים התואמים "${search}"` : filterVoted ? "אין בוחרים בסינון זה" : "לחץ 'הוסף בוחר' כדי להתחיל"}</p>
               {!search && !filterVoted && <button className="btn-primary" onClick={openAdd}><Plus size={14} />הוסף בוחר</button>}
             </div>
+          )}
+        </div>
+        <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
+      </div>
+
+      {/* ── Mobile card list (mobile only) ────────────────────────────────── */}
+      <div className="mobile-voter-cards card" style={{ display: "none", flexDirection: "column", padding: 0, overflow: "hidden", flex: 1, minHeight: 0 }}>
+        <div
+          onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }}
+          style={{ flex: 1, overflowY: "auto", minHeight: 0 }}
+        >
+          {filtered.length === 0 ? (
+            <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)" }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>🔍</div>
+              <div style={{ fontWeight: 600 }}>{search || filterVoted ? "לא נמצאו תוצאות" : "אין בוחרים"}</div>
+            </div>
+          ) : (
+            visible.map(v => {
+              const st = statusMap.get(v.statusId ?? "");
+              const voterGroups = groups.filter(g => v.groupIds.includes(g.id));
+              return (
+                <div key={v.id} className="voter-mobile-card" onClick={() => openEdit(v)}>
+                  {/* Avatar */}
+                  <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 15, flexShrink: 0, position: "relative" }}>
+                    {v.firstName[0]}{v.lastName[0]}
+                    {v.hasVoted && (
+                      <span style={{ position: "absolute", bottom: -2, left: -2, width: 16, height: 16, borderRadius: "50%", background: "#22c55e", border: "2px solid #fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 700 }}>✓</span>
+                    )}
+                  </div>
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 3 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {v.firstName} {v.lastName}
+                      </span>
+                      {st && (
+                        <span style={{ flexShrink: 0, padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: st.color + "22", color: st.color }}>
+                          {st.name}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "3px 10px", fontSize: 12, color: "var(--text-muted)" }}>
+                      {v.phone && <span style={{ direction: "ltr" }}>📞 {v.phone}</span>}
+                      {v.address.city && <span>📍 {v.address.city}</span>}
+                      {voterGroups.length > 0 && (
+                        <span style={{ color: "var(--blue-primary)" }}>
+                          {voterGroups.slice(0, 1).map(g => g.name).join(", ")}
+                          {voterGroups.length > 1 && ` +${voterGroups.length - 1}`}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Delete button */}
+                  <button
+                    className="btn-icon danger"
+                    onClick={(e) => { e.stopPropagation(); setDeleteTarget(v); }}
+                    style={{ flexShrink: 0, minWidth: 36, minHeight: 36 }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              );
+            })
           )}
         </div>
         <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
