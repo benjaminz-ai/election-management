@@ -5,17 +5,17 @@ import { useStore } from "./store";
 import { AppUser } from "@/types";
 import { initialUsers } from "@/data/dummy";
 
-type LoginResult = "ok" | "frozen" | "invalid";
+export type LoginResult = "ok" | "frozen" | "invalid";
 
 type AuthCtx = {
   currentUser: AppUser | null;
-  login: (email: string, password: string) => LoginResult;
+  login: (email: string, password: string) => Promise<LoginResult>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthCtx>({
   currentUser: null,
-  login: () => "invalid",
+  login: async () => "invalid",
   logout: () => {},
 });
 
@@ -37,11 +37,14 @@ function clearSession() {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { state } = useStore();
+  const { state, refreshUsers } = useStore();
 
-  // Always-current ref so login() never has a stale closure
+  // Always-current refs so callbacks never have stale closures
   const usersRef = useRef<AppUser[]>(state.users);
   usersRef.current = state.users;
+
+  const refreshUsersRef = useRef(refreshUsers);
+  refreshUsersRef.current = refreshUsers;
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -63,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user;
   }, [state.users, currentUserId]);
 
-  // Auto-logout: when user is frozen while logged in, clear session
+  // Auto-logout: when user is frozen while logged in, clear session immediately
   useEffect(() => {
     if (!currentUserId || state.users.length === 0) return;
     const user = state.users.find((u) => u.id === currentUserId);
@@ -73,27 +76,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [state.users, currentUserId]);
 
-  // Session expiry: periodically check if session is still valid
+  // Session expiry: check every minute
   useEffect(() => {
     const interval = setInterval(() => {
       if (currentUserId && !isSessionValid()) {
         clearSession();
         setCurrentUserId(null);
       }
-    }, 60 * 1000); // check every minute
+    }, 60 * 1000);
     return () => clearInterval(interval);
   }, [currentUserId]);
 
-  const login = useCallback((email: string, password: string): LoginResult => {
-    // Use live store data; fall back to seeded initialUsers only if store hasn't loaded
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    // Always fetch fresh users from Firestore before checking credentials.
+    // This ensures a password reset is immediately reflected — the old password
+    // cannot work after a reset even if the in-memory store is stale.
+    await refreshUsersRef.current();
+
+    // After refresh, usersRef.current holds the latest data.
+    // Fall back to initialUsers only if Firestore returned nothing (should not happen in prod).
     const users = usersRef.current.length > 0 ? usersRef.current : initialUsers;
 
     const normalizedEmail = email.trim().toLowerCase();
-
-    // First check if user exists with matching email + password
-    const user = users.find(
-      (u) => u.email.toLowerCase() === normalizedEmail && u.password === password
-    );
+    const user = users.find((u) => u.email.toLowerCase() === normalizedEmail && u.password === password);
 
     if (!user) return "invalid";
     if (user.isFrozen) return "frozen";
@@ -104,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(SESSION_KEY, Date.now().toString());
     }
     return "ok";
-  }, []); // stable — reads via ref
+  }, []); // stable — reads via refs
 
   const logout = useCallback(() => {
     setCurrentUserId(null);

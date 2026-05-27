@@ -21,22 +21,24 @@ export default function LoginPage() {
     if (currentUser) router.replace("/dashboard");
   }, [currentUser, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setTimeout(() => {
-      const result = login(email, password);
+    try {
+      const result = await login(email, password);
       if (result === "ok") {
         router.replace("/dashboard");
       } else if (result === "frozen") {
         setError("חשבון זה הוקפא. פנה למנהל המערכת.");
-        setLoading(false);
       } else {
         setError("אימייל או סיסמה שגויים.");
-        setLoading(false);
       }
-    }, 350);
+    } catch {
+      setError("שגיאה בהתחברות. נסה שנית.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,12 +137,10 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Forgot Password link */}
+          {/* Forgot Password */}
           <div style={{ textAlign: "left", marginBottom: 22 }}>
-            <Link
-              href="/forgot-password"
-              style={{ fontSize: 13, color: "#209dd7", textDecoration: "none", fontWeight: 500 }}
-            >
+            <Link href="/forgot-password"
+              style={{ fontSize: 13, color: "#209dd7", textDecoration: "none", fontWeight: 500 }}>
               שכחת סיסמה?
             </Link>
           </div>
