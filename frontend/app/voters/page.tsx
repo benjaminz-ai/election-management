@@ -56,7 +56,7 @@ const emptyVoter = (): Voter => ({
 export default function VotersPage() {
   const { state, addVoter, updateVoter, deleteVoter } = useStore();
   const { voters, groups, statuses } = state;
-  const statusMap = new Map(statuses.map(s => [s.id, s]));
+  const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
 
   // Filters
   const [search, setSearch] = useState("");
