@@ -6,15 +6,15 @@ import { Voter, Status } from "@/types";
 
 type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | null;
 
-function classifyStatus(name: string): "supporter" | "opponent" | "undecided" | "other" {
-  if (name.includes("תומך") || name.includes("בעד") || name.includes("חיובי")) return "supporter";
-  if (name.includes("מתנגד") || name.includes("נגד") || name.includes("שלילי")) return "opponent";
-  if (name.includes("מתלבט") || name.includes("ספק") || name.includes("לא יודע") || name.includes("לא החליט")) return "undecided";
-  return "other";
-}
-
 interface StatusBreakdown {
-  [statusName: string]: { count: number; color: string };
+  [statusName: string]: { count: number; color: string; category: string };
+}
+interface Stats {
+  breakdown: StatusBreakdown;
+  total: number;
+  supporters: number;
+  opponents: number;
+  undecided: number;
 }
 
 function StatusBar({ breakdown, total }: { breakdown: StatusBreakdown; total: number }) {
@@ -60,17 +60,17 @@ function ReportCard({ title, description, icon, reportKey, activeReport, onToggl
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div
-        style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer", borderBottom: isActive ? "1px solid #e2e8f0" : "none" }}
+        style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer", borderBottom: isActive ? "1px solid #e2e8f0" : "none", flexWrap: "wrap" }}
         onClick={() => onToggle(isActive ? null : reportKey)}
       >
         <div style={{ background: "#209dd722", borderRadius: 10, padding: 10, color: "#209dd7", flexShrink: 0 }}>{icon}</div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
           <div style={{ fontWeight: 600, fontSize: 15 }}>{title}</div>
           <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>{description}</div>
         </div>
         <button
           className="btn-primary"
-          style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}
+          style={{ padding: "8px 16px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}
           onClick={(e) => { e.stopPropagation(); onToggle(isActive ? null : reportKey); }}
         >
           {loading && isActive ? <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> : isActive ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -109,106 +109,84 @@ export default function ReportsPage() {
 
   const statusMap = new Map<string, Status>(statuses.map(s => [s.id, s]));
 
-  function buildBreakdown(voterList: Voter[]) {
+  function buildStats(voterList: Voter[]): Stats {
     const breakdown: StatusBreakdown = {};
     let supporters = 0, opponents = 0, undecided = 0;
     for (const v of voterList) {
       const st = v.statusId ? statusMap.get(v.statusId) : null;
       const name = st?.name ?? "ללא סטטוס";
       const color = st?.color ?? "#94a3b8";
-      if (!breakdown[name]) breakdown[name] = { count: 0, color };
+      const cat = st?.category ?? "neutral";
+      if (!breakdown[name]) breakdown[name] = { count: 0, color, category: cat };
       breakdown[name].count++;
-      if (st) {
-        const cat = classifyStatus(st.name);
-        if (cat === "supporter") supporters++;
-        else if (cat === "opponent") opponents++;
-        else if (cat === "undecided") undecided++;
-      }
+      if (cat === "supporter") supporters++;
+      else if (cat === "opponent") opponents++;
+      else if (cat === "undecided") undecided++;
     }
     return { breakdown, total: voterList.length, supporters, opponents, undecided };
   }
 
-  // Summary stats
-  const allStats = buildBreakdown(voters);
+  const allStats = buildStats(voters);
 
-  // ── Report 1: per group leader ──
+  // Report 1 — per leader
   const leaderReport = groupLeaders.map(leader => {
     const myGroups = groups.filter(g => g.groupLeaderId === leader.id);
-    const voterIdSet = new Set(myGroups.flatMap(g => g.voterIds));
-    const myVoters = voters.filter(v => voterIdSet.has(v.id));
-    const stats = buildBreakdown(myVoters);
-    const groupStats = myGroups.map(g => ({
-      group: g,
-      ...buildBreakdown(voters.filter(v => g.voterIds.includes(v.id))),
-    }));
+    const voterSet = new Set(myGroups.flatMap(g => g.voterIds));
+    const stats = buildStats(voters.filter(v => voterSet.has(v.id)));
+    const groupStats = myGroups.map(g => ({ group: g, ...buildStats(voters.filter(v => g.voterIds.includes(v.id))) }));
     return { leader, stats, groupStats };
   });
 
-  // ── Report 2: per group ──
+  // Report 2 — per group
   const groupReport = groups.map(g => {
     const leader = groupLeaders.find(l => l.id === g.groupLeaderId);
-    return { group: g, leader, ...buildBreakdown(voters.filter(v => g.voterIds.includes(v.id))) };
+    return { group: g, leader, ...buildStats(voters.filter(v => g.voterIds.includes(v.id))) };
   }).sort((a, b) => b.supporters - a.supporters);
 
-  // ── Report 3: per division head ──
+  // Report 3 — per division head
   const divReport = divisionHeads.map(dh => {
     const myLeaders = groupLeaders.filter(l => l.divisionHeadId === dh.id);
-    const voterIdSet = new Set(
-      myLeaders.flatMap(l => groups.filter(g => g.groupLeaderId === l.id).flatMap(g => g.voterIds))
-    );
-    const stats = buildBreakdown(voters.filter(v => voterIdSet.has(v.id)));
+    const voterSet = new Set(myLeaders.flatMap(l => groups.filter(g => g.groupLeaderId === l.id).flatMap(g => g.voterIds)));
+    const stats = buildStats(voters.filter(v => voterSet.has(v.id)));
     const leaderBreakdown = myLeaders.map(l => {
-      const lVoterIds = new Set(groups.filter(g => g.groupLeaderId === l.id).flatMap(g => g.voterIds));
-      return { leader: l, ...buildBreakdown(voters.filter(v => lVoterIds.has(v.id))) };
+      const lSet = new Set(groups.filter(g => g.groupLeaderId === l.id).flatMap(g => g.voterIds));
+      return { leader: l, ...buildStats(voters.filter(v => lSet.has(v.id))) };
     });
-    const groupCount = myLeaders.reduce((sum, l) => sum + groups.filter(g => g.groupLeaderId === l.id).length, 0);
+    const groupCount = myLeaders.reduce((s, l) => s + groups.filter(g => g.groupLeaderId === l.id).length, 0);
     return { dh, stats, leaderBreakdown, groupCount };
   });
 
-  // ── Report 4: families by address (city + street + streetNumber) ──
+  // Report 4 — families by address
   const familyMap: Record<string, { label: string; voters: Voter[]; apartments: Record<string, Voter[]> }> = {};
   voters.forEach(v => {
     const addr = v.address;
     if (!addr?.city || !addr?.street || !addr?.streetNumber) return;
     const key = `${addr.city}__${addr.street}__${addr.streetNumber}`.toLowerCase();
-    if (!familyMap[key]) {
-      familyMap[key] = {
-        label: `${addr.street} ${addr.streetNumber}, ${addr.city}`,
-        voters: [],
-        apartments: {},
-      };
-    }
+    if (!familyMap[key]) familyMap[key] = { label: `${addr.street} ${addr.streetNumber}, ${addr.city}`, voters: [], apartments: {} };
     familyMap[key].voters.push(v);
-    // Sub-group by apartment
     if (addr.apartment) {
-      const apt = addr.apartment;
-      if (!familyMap[key].apartments[apt]) familyMap[key].apartments[apt] = [];
-      familyMap[key].apartments[apt].push(v);
+      if (!familyMap[key].apartments[addr.apartment]) familyMap[key].apartments[addr.apartment] = [];
+      familyMap[key].apartments[addr.apartment].push(v);
     }
   });
-
   const familyReport = Object.values(familyMap)
     .filter(f => f.voters.length > 1)
     .map(f => {
-      const stats = buildBreakdown(f.voters);
+      const stats = buildStats(f.voters);
       const mixed = stats.supporters > 0 && stats.opponents > 0;
-      const aptEntries = Object.entries(f.apartments)
-        .filter(([, av]) => av.length > 1)
-        .map(([apt, av]) => ({ apt, ...buildBreakdown(av) }));
+      const aptEntries = Object.entries(f.apartments).filter(([, av]) => av.length > 1).map(([apt, av]) => ({ apt, ...buildStats(av) }));
       return { ...f, stats, mixed, aptEntries };
     })
     .sort((a, b) => b.stats.total - a.stats.total);
 
-  // ── Report 5: geographic ──
+  // Report 5 — geographic
   const cityMap: Record<string, Voter[]> = {};
   voters.forEach(v => {
     const city = v.address?.city || "לא ידוע";
     if (!cityMap[city]) cityMap[city] = [];
     cityMap[city].push(v);
   });
-  const geoReport = Object.entries(cityMap)
-    .map(([city, cv]) => ({ city, ...buildBreakdown(cv) }))
-    .sort((a, b) => b.total - a.total);
+  const geoReport = Object.entries(cityMap).map(([city, cv]) => ({ city, ...buildStats(cv) })).sort((a, b) => b.total - a.total);
 
   return (
     <div>
@@ -217,34 +195,38 @@ export default function ReportsPage() {
         <p style={{ color: "#64748b", marginTop: 4, fontSize: 14 }}>לחץ "הפק דוח" לדוח דינמי בזמן אמת</p>
       </div>
 
+      {/* Summary — aggregated by category */}
       <div className="resp-grid-4" style={{ marginBottom: 24 }}>
         <SummaryCard label="סך מצביעים" value={allStats.total} color="#3b82f6" icon={<Users size={18} />} />
-        <SummaryCard label="תומכים" value={allStats.supporters} color="#22c55e" icon={<Tag size={18} />} />
-        <SummaryCard label="מתנגדים" value={allStats.opponents} color="#ef4444" icon={<Tag size={18} />} />
+        <SummaryCard label="תומכים (כל הסוגים)" value={allStats.supporters} color="#22c55e" icon={<Tag size={18} />} />
+        <SummaryCard label="מתנגדים (כל הסוגים)" value={allStats.opponents} color="#ef4444" icon={<Tag size={18} />} />
         <SummaryCard label="מתלבטים" value={allStats.undecided} color="#f59e0b" icon={<Tag size={18} />} />
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
         {/* 1 — leaders */}
-        <ReportCard title="ניתוח ראשי קבוצה" description="פירוט לכל ראש קבוצה, עם פירוט לפי קבוצות" icon={<Users size={18} />} reportKey="leaders" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+        <ReportCard title="ניתוח ראשי קבוצה" description="פירוט לכל ראש קבוצה עם drill-down לקבוצות" icon={<Users size={18} />} reportKey="leaders" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {leaderReport.length === 0 ? <p style={{ color: "#94a3b8" }}>אין ראשי קבוצה</p> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {leaderReport.map(({ leader, stats, groupStats }) => (
                 <div key={leader.id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
-                  <div style={{ padding: "12px 16px", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}
+                  <div style={{ padding: "12px 16px", background: "#f8fafc", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", flexWrap: "wrap", gap: 8 }}
                     onClick={() => setExpandedLeaders(prev => { const s = new Set(prev); s.has(leader.id) ? s.delete(leader.id) : s.add(leader.id); return s; })}>
                     <div>
                       <span style={{ fontWeight: 600 }}>{leader.firstName} {leader.lastName}</span>
-                      <span style={{ fontSize: 12, color: "#64748b", marginRight: 10 }}>{groupStats.length} קבוצות · {stats.total} בוחרים</span>
+                      <span style={{ fontSize: 12, color: "#64748b", marginRight: 8 }}>{groupStats.length} קבוצות · {stats.total} בוחרים · </span>
+                      <span style={{ fontSize: 12, color: "#22c55e" }}>{stats.supporters} תומכים</span>
+                      <span style={{ fontSize: 12, color: "#94a3b8" }}> · </span>
+                      <span style={{ fontSize: 12, color: "#ef4444" }}>{stats.opponents} מתנגדים</span>
                     </div>
                     {expandedLeaders.has(leader.id) ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                   </div>
                   <div style={{ padding: "8px 16px 12px" }}><StatusBar breakdown={stats.breakdown} total={stats.total} /></div>
-                  {expandedLeaders.has(leader.id) && groupStats.map(({ group, breakdown, total }) => (
+                  {expandedLeaders.has(leader.id) && groupStats.map(({ group, breakdown, total, supporters, opponents }) => (
                     <div key={group.id} style={{ padding: "8px 16px 12px", borderTop: "1px solid #f1f5f9", paddingRight: 28 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{group.name}</span>
-                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>{total} בוחרים</span>
+                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span></span>
                       <StatusBar breakdown={breakdown} total={total} />
                     </div>
                   ))}
@@ -255,16 +237,16 @@ export default function ReportsPage() {
         </ReportCard>
 
         {/* 2 — groups */}
-        <ReportCard title="ניתוח קבוצות" description="פירוט לכל קבוצה, ממוין לפי כמות תומכים" icon={<BarChart3 size={18} />} reportKey="groups" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+        <ReportCard title="ניתוח קבוצות" description="פירוט לכל קבוצה, ממוין לפי תומכים" icon={<BarChart3 size={18} />} reportKey="groups" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {groupReport.map(({ group, leader, breakdown, total }) => (
+            {groupReport.map(({ group, leader, breakdown, total, supporters, opponents }) => (
               <div key={group.id} style={{ padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
                   <div>
                     <span style={{ fontWeight: 600 }}>{group.name}</span>
                     {leader && <span style={{ fontSize: 12, color: "#64748b", marginRight: 8 }}>ר"ק: {leader.firstName} {leader.lastName}</span>}
                   </div>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>{total} בוחרים</span>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span></span>
                 </div>
                 <StatusBar breakdown={breakdown} total={total} />
               </div>
@@ -273,20 +255,20 @@ export default function ReportsPage() {
         </ReportCard>
 
         {/* 3 — division heads */}
-        <ReportCard title="ניתוח ראשי אגף" description="צבירה לפי ראשי אגפים עם drill-down לראשי קבוצה" icon={<GitMerge size={18} />} reportKey="divisions" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+        <ReportCard title="ניתוח ראשי אגף" description="צבירה לפי ראשי אגפים עם פירוט ראשי קבוצה" icon={<GitMerge size={18} />} reportKey="divisions" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {divReport.length === 0 ? <p style={{ color: "#94a3b8" }}>אין ראשי אגף</p> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {divReport.map(({ dh, stats, leaderBreakdown, groupCount }) => (
                 <div key={dh.id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
                   <div style={{ padding: "12px 16px", background: "#f8fafc" }}>
                     <span style={{ fontWeight: 600 }}>{dh.firstName} {dh.lastName}</span>
-                    <span style={{ fontSize: 12, color: "#64748b", marginRight: 8 }}>{groupCount} קבוצות · {stats.total} בוחרים</span>
+                    <span style={{ fontSize: 12, color: "#64748b", marginRight: 8 }}>{groupCount} קבוצות · {stats.total} בוחרים · <span style={{ color: "#22c55e" }}>{stats.supporters} תומכים</span></span>
                   </div>
                   <div style={{ padding: "8px 16px 12px" }}><StatusBar breakdown={stats.breakdown} total={stats.total} /></div>
-                  {leaderBreakdown.map(({ leader, breakdown, total }) => (
+                  {leaderBreakdown.map(({ leader, breakdown, total, supporters }) => (
                     <div key={leader.id} style={{ padding: "8px 16px 12px", borderTop: "1px solid #f1f5f9", paddingRight: 28 }}>
                       <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>{leader.firstName} {leader.lastName}</span>
-                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>{total} בוחרים</span>
+                      <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span></span>
                       <StatusBar breakdown={breakdown} total={total} />
                     </div>
                   ))}
@@ -296,8 +278,8 @@ export default function ReportsPage() {
           )}
         </ReportCard>
 
-        {/* 4 — families by address */}
-        <ReportCard title="הצלבת משפחות" description="קיבוץ לפי כתובת — אותו רחוב + מספר + עיר. משפחות מפוצלות מסומנות בצהוב" icon={<Users size={18} />} reportKey="families" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+        {/* 4 — families */}
+        <ReportCard title="הצלבת משפחות" description="קיבוץ לפי כתובת: עיר + רחוב + מספר. מפוצלות = תומכים ומתנגדים יחד" icon={<Users size={18} />} reportKey="families" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {familyReport.length === 0
             ? <p style={{ color: "#94a3b8" }}>לא נמצאו שתי נפשות באותה כתובת</p>
             : (
@@ -309,10 +291,9 @@ export default function ReportsPage() {
                         {f.label}
                         {f.mixed && <span style={{ fontSize: 12, color: "#d97706", marginRight: 8 }}>⚠ מפוצלת</span>}
                       </div>
-                      <span style={{ fontSize: 13, color: "#64748b" }}>{f.stats.total} נפשות</span>
+                      <span style={{ fontSize: 13, color: "#64748b" }}>{f.stats.total} נפשות · <span style={{ color: "#22c55e" }}>{f.stats.supporters}✓</span> <span style={{ color: "#ef4444" }}>{f.stats.opponents}✗</span></span>
                     </div>
                     <StatusBar breakdown={f.stats.breakdown} total={f.stats.total} />
-                    {/* Apartment sub-groups */}
                     {f.aptEntries.map(({ apt, breakdown, total }) => (
                       <div key={apt} style={{ marginTop: 8, paddingRight: 14, borderRight: "3px solid #e2e8f0" }}>
                         <span style={{ fontSize: 12, color: "#64748b" }}>דירה {apt} ({total} נפשות)</span>
@@ -328,19 +309,19 @@ export default function ReportsPage() {
         {/* 5 — geographic */}
         <ReportCard title="מפת תמיכה גיאוגרפית" description="פירוט לפי עיר / יישוב" icon={<MapPin size={18} />} reportKey="geo" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {geoReport.map(({ city, breakdown, total }) => (
+            {geoReport.map(({ city, breakdown, total, supporters, opponents }) => (
               <div key={city} style={{ padding: "12px 16px", border: "1px solid #e2e8f0", borderRadius: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 4 }}>
                   <span style={{ fontWeight: 600 }}>{city}</span>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>{total} מצביעים</span>
+                  <span style={{ fontSize: 13, color: "#64748b" }}>{total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span></span>
                 </div>
                 <StatusBar breakdown={breakdown} total={total} />
               </div>
             ))}
           </div>
         </ReportCard>
-
       </div>
+
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         .resp-grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; }
