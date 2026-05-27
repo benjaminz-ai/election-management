@@ -5,17 +5,24 @@ import { useStore } from "@/lib/store";
 import { Voter } from "@/types";
 import { generateId, formatAddress } from "@/lib/utils";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, EyeOff } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 type ColId = "name" | "phone" | "address" | "status" | "voted" | "groups";
+type SortKey = "lastName" | "firstName" | "phone" | "city" | "status" | "voted";
+type SortDir = "asc" | "desc";
 
 const COL_LABELS: Record<ColId, string> = {
   name: "בוחר", phone: "טלפון", address: "כתובת",
   status: "סטטוס", voted: "הצביע", groups: "קבוצות",
+};
+
+// Which sort key each column maps to (null = not sortable)
+const COL_SORT: Partial<Record<ColId, SortKey>> = {
+  name: "lastName", phone: "phone", address: "city", status: "status", voted: "voted",
 };
 
 const DRAGGABLE_COLS: ColId[] = ["name", "phone", "address", "status", "voted", "groups"];
@@ -56,6 +63,15 @@ export default function VotersPage() {
   const [search, setSearch] = useState("");
   const [filterVoted, setFilterVoted] = useState<"" | "yes" | "no">("");
 
+  // Sorting
+  const [sortKey, setSortKey] = useState<SortKey>("lastName");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
   // Column drag & drop
   const [colOrder, setColOrder] = useState<ColId[]>(loadColOrder);
   const [colVisible, setColVisible] = useState<Record<ColId, boolean>>(loadColVisible);
@@ -86,7 +102,21 @@ export default function VotersPage() {
     });
   }, [voters, search, filterVoted]);
 
-  const { visible, hasMore, loadMore, showing, total } = usePagination(filtered);
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let va = "", vb = "";
+      if (sortKey === "lastName") { va = a.lastName; vb = b.lastName; }
+      else if (sortKey === "firstName") { va = a.firstName; vb = b.firstName; }
+      else if (sortKey === "phone") { va = a.phone ?? ""; vb = b.phone ?? ""; }
+      else if (sortKey === "city") { va = a.address.city; vb = b.address.city; }
+      else if (sortKey === "status") { va = statusMap.get(a.statusId ?? "")?.name ?? ""; vb = statusMap.get(b.statusId ?? "")?.name ?? ""; }
+      else if (sortKey === "voted") { va = a.hasVoted ? "1" : "0"; vb = b.hasVoted ? "1" : "0"; }
+      const cmp = va.localeCompare(vb, "he");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [filtered, sortKey, sortDir, statusMap]);
+
+  const { visible, hasMore, loadMore, showing, total } = usePagination(sorted);
 
   // Form handlers
   const openAdd  = () => { setForm(emptyVoter()); setEditing(null); setShowForm(true); };
@@ -169,6 +199,16 @@ export default function VotersPage() {
     }
   };
 
+  // Sort icon for a column header
+  const SortIcon = ({ col }: { col: ColId }) => {
+    const sk = COL_SORT[col];
+    if (!sk) return null;
+    const active = sortKey === sk;
+    return active
+      ? (sortDir === "asc" ? <ArrowUp size={11} color="var(--blue-primary)" /> : <ArrowDown size={11} color="var(--blue-primary)" />)
+      : <ArrowUpDown size={11} style={{ opacity: 0.35 }} />;
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", gap: 0 }}>
 
@@ -235,7 +275,7 @@ export default function VotersPage() {
         {/* Drag hint */}
         <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
           <GripVertical size={12} />
-          <span>גרור כותרת עמודה לשינוי סדר</span>
+          <span>גרור כותרת עמודה לשינוי סדר · לחץ על כותרת למיון</span>
         </div>
       </div>
 
@@ -245,28 +285,34 @@ export default function VotersPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)", position: "sticky", top: 0, zIndex: 2 }}>
-                {visibleCols.map(col => (
-                  <th
-                    key={col}
-                    draggable
-                    onDragStart={() => handleDragStart(col)}
-                    onDragOver={(e) => handleDragOver(e, col)}
-                    onDrop={handleDrop}
-                    style={{
-                      padding: "11px 16px", textAlign: "right", fontSize: 11, fontWeight: 700,
-                      color: "var(--gray-text)", textTransform: "uppercase", letterSpacing: "0.05em",
-                      cursor: "grab", userSelect: "none",
-                      background: dragColRef.current === col ? "rgba(32,157,215,0.1)" : "var(--bg)",
-                      borderBottom: dragOverColRef.current === col ? "2px solid var(--blue-primary)" : undefined,
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      <GripVertical size={11} style={{ opacity: 0.4 }} />
-                      {COL_LABELS[col]}
-                    </div>
-                  </th>
-                ))}
+                {visibleCols.map(col => {
+                  const sk = COL_SORT[col];
+                  const active = sk && sortKey === sk;
+                  return (
+                    <th
+                      key={col}
+                      draggable
+                      onDragStart={() => handleDragStart(col)}
+                      onDragOver={(e) => handleDragOver(e, col)}
+                      onDrop={handleDrop}
+                      onClick={() => sk && handleSort(sk)}
+                      style={{
+                        padding: "11px 16px", textAlign: "right", fontSize: 11, fontWeight: 700,
+                        color: active ? "var(--blue-primary)" : "var(--gray-text)",
+                        textTransform: "uppercase", letterSpacing: "0.05em",
+                        cursor: sk ? "pointer" : "grab", userSelect: "none",
+                        background: active ? "rgba(32,157,215,0.06)" : "var(--bg)",
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        <GripVertical size={11} style={{ opacity: 0.4 }} />
+                        {COL_LABELS[col]}
+                        <SortIcon col={col} />
+                      </div>
+                    </th>
+                  );
+                })}
                 <th style={{ padding: "11px 16px", width: 80 }}></th>
               </tr>
             </thead>
