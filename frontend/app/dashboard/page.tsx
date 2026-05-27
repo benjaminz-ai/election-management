@@ -76,7 +76,7 @@ export default function DashboardPage() {
               <span>{total - totalVoted} טרם הצביעו</span>
             </div>
           </div>
-          <button className="btn-secondary" style={{ flexShrink: 0 }} onClick={() => router.push("/reports")}>
+          <button className="btn-secondary" style={{ flexShrink: 0 }} onClick={() => router.push("/reports?open=voting")}>
             דוח הצבעה מלא
           </button>
         </div>

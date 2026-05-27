@@ -1,13 +1,28 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useStore } from "@/lib/store";
-import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote } from "lucide-react";
+import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Voter, Status } from "@/types";
 
 type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | "voting" | null;
+type SortDir = "asc" | "desc";
+type VoterSortKey = "lastName" | "firstName" | "phone" | "city" | "status";
 
-interface StatusBreakdown { [statusName: string]: { count: number; color: string; category: string }; }
+const PAGE_SIZE = 50;
+
+interface StatusBreakdown { [k: string]: { count: number; color: string; category: string }; }
 interface Stats { breakdown: StatusBreakdown; total: number; supporters: number; opponents: number; undecided: number; voted: number; }
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+function SortBtn({ field, current, dir, onSort }: { field: VoterSortKey; current: VoterSortKey; dir: SortDir; onSort: (f: VoterSortKey) => void }) {
+  const active = current === field;
+  return (
+    <button onClick={() => onSort(field)} style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "none", border: "none", cursor: "pointer", color: active ? "var(--blue-primary)" : "inherit", fontWeight: active ? 700 : 600, fontSize: "inherit", padding: 0 }}>
+      {field === "lastName" ? "שם משפחה" : field === "firstName" ? "שם פרטי" : field === "phone" ? "טלפון" : field === "city" ? "עיר" : "סטטוס"}
+      {active ? (dir === "asc" ? <ArrowUp size={11} /> : <ArrowDown size={11} />) : <ArrowUpDown size={11} style={{ opacity: 0.4 }} />}
+    </button>
+  );
+}
 
 function StatusBar({ breakdown, total }: { breakdown: StatusBreakdown; total: number }) {
   if (total === 0) return <div style={{ color: "#94a3b8", fontSize: 13, marginTop: 6 }}>אין בוחרים</div>;
@@ -22,7 +37,7 @@ function StatusBar({ breakdown, total }: { breakdown: StatusBreakdown; total: nu
       <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 12px", marginTop: 5, fontSize: 12 }}>
         {entries.map(([name, { count, color }]) => (
           <span key={name} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+            <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: color }} />
             <span style={{ color: "#475569" }}>{name}:</span>
             <span style={{ fontWeight: 600, color: "#1e293b" }}>{count}</span>
           </span>
@@ -90,6 +105,129 @@ function ReportCard({ title, description, icon, reportKey, activeReport, onToggl
   );
 }
 
+// ── Voter list table with sort + pagination ───────────────────────────────────
+function VoterListTable({ voters, statuses, emptyText }: { voters: Voter[]; statuses: Status[]; emptyText: string }) {
+  const statusMap = new Map(statuses.map(s => [s.id, s]));
+  const [sortKey, setSortKey] = useState<VoterSortKey>("lastName");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [page, setPage] = useState(0);
+
+  const handleSort = (key: VoterSortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+    setPage(0);
+  };
+
+  const sorted = useMemo(() => {
+    return [...voters].sort((a, b) => {
+      let va = "", vb = "";
+      if (sortKey === "lastName") { va = a.lastName; vb = b.lastName; }
+      else if (sortKey === "firstName") { va = a.firstName; vb = b.firstName; }
+      else if (sortKey === "phone") { va = a.phone ?? ""; vb = b.phone ?? ""; }
+      else if (sortKey === "city") { va = a.address.city; vb = b.address.city; }
+      else if (sortKey === "status") { va = statusMap.get(a.statusId ?? "")?.name ?? ""; vb = statusMap.get(b.statusId ?? "")?.name ?? ""; }
+      const cmp = va.localeCompare(vb, "he");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [voters, sortKey, sortDir, statusMap]);
+
+  const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+  const pageVoters = sorted.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  if (voters.length === 0) return <div style={{ padding: "28px", textAlign: "center", color: "#94a3b8", fontSize: 13 }}>{emptyText}</div>;
+
+  return (
+    <div>
+      {/* Sort bar */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12, padding: "10px 14px", background: "#f8fafc", borderRadius: 8, fontSize: 13, alignItems: "center" }}>
+        <span style={{ color: "#64748b", fontWeight: 600, fontSize: 12 }}>מיון לפי:</span>
+        {(["lastName", "firstName", "phone", "city", "status"] as VoterSortKey[]).map(f => (
+          <SortBtn key={f} field={f} current={sortKey} dir={sortDir} onSort={handleSort} />
+        ))}
+        <span style={{ marginRight: "auto", fontSize: 12, color: "#94a3b8" }}>{sorted.length} רשומות</span>
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: "auto", borderRadius: 8, border: "1px solid #e2e8f0" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: "#f8fafc", borderBottom: "1.5px solid #e2e8f0" }}>
+              <th style={thS}>שם</th>
+              <th style={thS}>ת.ז.</th>
+              <th style={thS}>טלפון</th>
+              <th style={thS}>עיר</th>
+              <th style={thS}>סטטוס</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pageVoters.map(v => {
+              const st = statusMap.get(v.statusId ?? "");
+              return (
+                <tr key={v.id} style={{ borderBottom: "1px solid #f1f5f9" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "#f9fafb")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "")}>
+                  <td style={tdS}>
+                    <div style={{ fontWeight: 600 }}>{v.lastName} {v.firstName}</div>
+                  </td>
+                  <td style={{ ...tdS, fontFamily: "monospace", fontSize: 12, color: "#64748b" }}>{v.uniqueId}</td>
+                  <td style={{ ...tdS, direction: "ltr", textAlign: "right" }}>{v.phone ?? "—"}</td>
+                  <td style={tdS}>{v.address.city}</td>
+                  <td style={tdS}>
+                    {st
+                      ? <span style={{ background: st.color + "22", color: st.color, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>{st.name}</span>
+                      : <span style={{ color: "#94a3b8", fontSize: 12 }}>—</span>}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+          <button onClick={() => setPage(0)} disabled={page === 0}
+            style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid var(--border)", background: page === 0 ? "#f1f5f9" : "#fff", cursor: page === 0 ? "not-allowed" : "pointer", color: page === 0 ? "#94a3b8" : "var(--text-primary)", fontSize: 12 }}>
+            ראשון
+          </button>
+          <button onClick={() => setPage(p => p - 1)} disabled={page === 0}
+            style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid var(--border)", background: page === 0 ? "#f1f5f9" : "#fff", cursor: page === 0 ? "not-allowed" : "pointer", display: "flex", alignItems: "center" }}>
+            <ChevronRight size={14} />
+          </button>
+
+          {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
+            let p = i;
+            if (totalPages > 7) {
+              const start = Math.max(0, Math.min(page - 3, totalPages - 7));
+              p = start + i;
+            }
+            return (
+              <button key={p} onClick={() => setPage(p)}
+                style={{ width: 32, height: 32, borderRadius: 7, border: "1.5px solid", borderColor: page === p ? "var(--blue-primary)" : "var(--border)", background: page === p ? "var(--blue-primary)" : "#fff", color: page === p ? "#fff" : "var(--text-primary)", fontWeight: page === p ? 700 : 400, fontSize: 13, cursor: "pointer" }}>
+                {p + 1}
+              </button>
+            );
+          })}
+
+          <button onClick={() => setPage(p => p + 1)} disabled={page === totalPages - 1}
+            style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid var(--border)", background: page === totalPages - 1 ? "#f1f5f9" : "#fff", cursor: page === totalPages - 1 ? "not-allowed" : "pointer", display: "flex", alignItems: "center" }}>
+            <ChevronLeft size={14} />
+          </button>
+          <button onClick={() => setPage(totalPages - 1)} disabled={page === totalPages - 1}
+            style={{ padding: "5px 10px", borderRadius: 7, border: "1.5px solid var(--border)", background: page === totalPages - 1 ? "#f1f5f9" : "#fff", cursor: page === totalPages - 1 ? "not-allowed" : "pointer", color: page === totalPages - 1 ? "#94a3b8" : "var(--text-primary)", fontSize: 12 }}>
+            אחרון
+          </button>
+          <span style={{ fontSize: 12, color: "#64748b" }}>
+            עמוד {page + 1} מתוך {totalPages} · {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, sorted.length)} מתוך {sorted.length}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
   const { state } = useStore();
   const { voters, groups, groupLeaders, divisionHeads, statuses } = state;
@@ -97,6 +235,16 @@ export default function ReportsPage() {
   const [activeReport, setActiveReport] = useState<ReportKey>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [expandedLeaders, setExpandedLeaders] = useState<Set<string>>(new Set());
+  const [votingTab, setVotingTab] = useState<"voted" | "not_voted">("voted");
+
+  // Auto-open from query param
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const open = params.get("open") as ReportKey;
+      if (open) { setActiveReport(open); }
+    } catch {}
+  }, []);
 
   const handleToggle = (key: ReportKey) => {
     if (key && key !== activeReport) { setReportLoading(true); setActiveReport(key); setTimeout(() => setReportLoading(false), 300); }
@@ -127,7 +275,10 @@ export default function ReportsPage() {
   const totalVoted = voters.filter(v => v.hasVoted).length;
   const votingPct = voters.length > 0 ? Math.round((totalVoted / voters.length) * 100) : 0;
 
-  // Reports data
+  const votedVoters = useMemo(() => voters.filter(v => v.hasVoted), [voters]);
+  const notVotedVoters = useMemo(() => voters.filter(v => !v.hasVoted), [voters]);
+
+  // Report data
   const leaderReport = groupLeaders.map(leader => {
     const myGroups = groups.filter(g => g.groupLeaderId === leader.id);
     const voterSet = new Set(myGroups.flatMap(g => g.voterIds));
@@ -160,10 +311,7 @@ export default function ReportsPage() {
     const key = `${addr.city}__${addr.street}__${addr.streetNumber}`.toLowerCase();
     if (!familyMap[key]) familyMap[key] = { label: `${addr.street} ${addr.streetNumber}, ${addr.city}`, voters: [], apartments: {} };
     familyMap[key].voters.push(v);
-    if (addr.apartment) {
-      if (!familyMap[key].apartments[addr.apartment]) familyMap[key].apartments[addr.apartment] = [];
-      familyMap[key].apartments[addr.apartment].push(v);
-    }
+    if (addr.apartment) { if (!familyMap[key].apartments[addr.apartment]) familyMap[key].apartments[addr.apartment] = []; familyMap[key].apartments[addr.apartment].push(v); }
   });
   const familyReport = Object.values(familyMap).filter(f => f.voters.length > 1).map(f => {
     const stats = buildStats(f.voters);
@@ -176,7 +324,6 @@ export default function ReportsPage() {
   voters.forEach(v => { const city = v.address?.city || "לא ידוע"; if (!cityMap[city]) cityMap[city] = []; cityMap[city].push(v); });
   const geoReport = Object.entries(cityMap).map(([city, cv]) => ({ city, ...buildStats(cv) })).sort((a, b) => b.total - a.total);
 
-  // Voting report — by group
   const votingByGroup = groups.map(g => {
     const gVoters = voters.filter(v => g.voterIds.includes(v.id));
     const voted = gVoters.filter(v => v.hasVoted).length;
@@ -195,7 +342,7 @@ export default function ReportsPage() {
         <p style={{ color: "#64748b", marginTop: 4, fontSize: 14 }}>לחץ "הפק דוח" לדוח דינמי בזמן אמת</p>
       </div>
 
-      {/* Summary cards */}
+      {/* Summary */}
       <div className="resp-grid-5" style={{ marginBottom: 24 }}>
         <SummaryCard label="סך מצביעים" value={allStats.total} color="#3b82f6" icon={<Users size={18} />} />
         <SummaryCard label="תומכים" value={allStats.supporters} color="#22c55e" icon={<Tag size={18} />} />
@@ -203,11 +350,11 @@ export default function ReportsPage() {
         <SummaryCard label="מתלבטים" value={allStats.undecided} color="#f59e0b" icon={<Tag size={18} />} />
         <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
           <div style={{ background: "#22c55e22", borderRadius: 10, padding: 10, color: "#22c55e", flexShrink: 0 }}><Vote size={18} /></div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--dark-navy)" }}>{totalVoted} <span style={{ fontSize: 13, color: "#64748b", fontWeight: 400 }}>מתוך {allStats.total}</span></div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "var(--dark-navy)" }}>{totalVoted} <span style={{ fontSize: 13, color: "#64748b", fontWeight: 400 }}>/ {allStats.total}</span></div>
             <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>הצביעו ({votingPct}%)</div>
             <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
-              <div style={{ width: `${votingPct}%`, height: "100%", background: "#22c55e", transition: "width 0.5s" }} />
+              <div style={{ width: `${votingPct}%`, height: "100%", background: "#22c55e" }} />
             </div>
           </div>
         </div>
@@ -215,10 +362,11 @@ export default function ReportsPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-        {/* Voting rates report */}
-        <ReportCard title="שיעורי הצבעה" description="כמה בוחרים הצביעו — לפי קבוצה ועיר" icon={<Vote size={18} />} reportKey="voting" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+        {/* ── Voting rates ───────────────────────────────────────────────── */}
+        <ReportCard title="שיעורי הצבעה" description={`${totalVoted} הצביעו מתוך ${allStats.total} · רשימה מלאה עם מיון ועימוד`} icon={<Vote size={18} />} reportKey="voting" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-            {/* Overall */}
+
+            {/* Overall bar */}
             <div style={{ padding: "16px 18px", background: "#f0fdf4", borderRadius: 12, border: "1.5px solid #86efac" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                 <span style={{ fontWeight: 700, fontSize: 15, color: "#166534" }}>סה"כ</span>
@@ -230,9 +378,7 @@ export default function ReportsPage() {
             {/* By group */}
             {votingByGroup.length > 0 && (
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#475569", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  <Users size={13} /> לפי קבוצה
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#475569", marginBottom: 10 }}>לפי קבוצה</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {votingByGroup.map(({ group, leader, total, voted }) => {
                     const pct = total > 0 ? Math.round((voted / total) * 100) : 0;
@@ -256,9 +402,7 @@ export default function ReportsPage() {
             {/* By city */}
             {votingByCity.length > 0 && (
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: "#475569", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                  <MapPin size={13} /> לפי עיר
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: "#475569", marginBottom: 10 }}>לפי עיר</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {votingByCity.map(({ city, total, voted }) => {
                     const pct = total > 0 ? Math.round((voted / total) * 100) : 0;
@@ -276,17 +420,26 @@ export default function ReportsPage() {
               </div>
             )}
 
-            {totalVoted === 0 && (
-              <div style={{ textAlign: "center", padding: "32px", color: "#94a3b8", background: "#fafbfc", borderRadius: 10 }}>
-                <Vote size={28} color="#d1d5db" style={{ margin: "0 auto 8px", display: "block" }} />
-                <div style={{ fontSize: 14 }}>עדיין לא תועדו הצבעות</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>סמן "הצביע" בטפסי השיחות בטלמרקטינג</div>
+            {/* Voter list tabs */}
+            <div>
+              <div style={{ display: "flex", gap: 0, marginBottom: 14, borderBottom: "1.5px solid #e2e8f0" }}>
+                {([["voted", `✓ הצביעו (${votedVoters.length})`, "#16a34a"], ["not_voted", `✗ לא הצביעו (${notVotedVoters.length})`, "#dc2626"]] as const).map(([tab, label, color]) => (
+                  <button key={tab} onClick={() => setVotingTab(tab)}
+                    style={{ padding: "9px 20px", fontSize: 13, fontWeight: 600, background: "none", border: "none", borderBottom: votingTab === tab ? `2.5px solid ${color}` : "2.5px solid transparent", color: votingTab === tab ? color : "#64748b", cursor: "pointer", marginBottom: -1.5 }}>
+                    {label}
+                  </button>
+                ))}
               </div>
-            )}
+              <VoterListTable
+                voters={votingTab === "voted" ? votedVoters : notVotedVoters}
+                statuses={statuses}
+                emptyText={votingTab === "voted" ? "טרם תועדו הצבעות" : "כל הבוחרים הצביעו!"}
+              />
+            </div>
           </div>
         </ReportCard>
 
-        {/* Leaders */}
+        {/* ── Leaders ────────────────────────────────────────────────────── */}
         <ReportCard title="ניתוח ראשי קבוצה" description="פירוט לכל ראש קבוצה עם drill-down לקבוצות" icon={<Users size={18} />} reportKey="leaders" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {leaderReport.length === 0 ? <p style={{ color: "#94a3b8" }}>אין ראשי קבוצה</p> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -321,7 +474,7 @@ export default function ReportsPage() {
           )}
         </ReportCard>
 
-        {/* Groups */}
+        {/* ── Groups ─────────────────────────────────────────────────────── */}
         <ReportCard title="ניתוח קבוצות" description="פירוט לכל קבוצה, ממוין לפי תומכים" icon={<BarChart3 size={18} />} reportKey="groups" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {groupReport.map(({ group, leader, breakdown, total, supporters, opponents, voted }) => (
@@ -342,7 +495,7 @@ export default function ReportsPage() {
           </div>
         </ReportCard>
 
-        {/* Divisions */}
+        {/* ── Divisions ──────────────────────────────────────────────────── */}
         <ReportCard title="ניתוח ראשי אגף" description="צבירה לפי ראשי אגפים עם פירוט ראשי קבוצה" icon={<GitMerge size={18} />} reportKey="divisions" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {divReport.length === 0 ? <p style={{ color: "#94a3b8" }}>אין ראשי אגף</p> : (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -370,7 +523,7 @@ export default function ReportsPage() {
           )}
         </ReportCard>
 
-        {/* Families */}
+        {/* ── Families ───────────────────────────────────────────────────── */}
         <ReportCard title="הצלבת משפחות" description="קיבוץ לפי כתובת: עיר + רחוב + מספר" icon={<Users size={18} />} reportKey="families" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           {familyReport.length === 0
             ? <p style={{ color: "#94a3b8" }}>לא נמצאו שתי נפשות באותה כתובת</p>
@@ -401,7 +554,7 @@ export default function ReportsPage() {
             )}
         </ReportCard>
 
-        {/* Geographic */}
+        {/* ── Geographic ─────────────────────────────────────────────────── */}
         <ReportCard title="מפת תמיכה גיאוגרפית" description="פירוט לפי עיר / יישוב" icon={<MapPin size={18} />} reportKey="geo" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {geoReport.map(({ city, breakdown, total, supporters, opponents, voted }) => (
@@ -430,3 +583,6 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+const thS: React.CSSProperties = { padding: "10px 14px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--gray-text)", textTransform: "uppercase", letterSpacing: "0.04em" };
+const tdS: React.CSSProperties = { padding: "10px 14px", verticalAlign: "middle" };
