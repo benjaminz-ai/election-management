@@ -68,6 +68,9 @@ body {
   inset: 0;
   background: rgba(0,0,0,.55);
   z-index: 99;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .mobile-header {
   display: none;
@@ -511,8 +514,8 @@ td {
   /* Sidebar slides in from right */
   .sidebar {
     position: fixed;
-    top: 0; right: -290px; bottom: 0;
-    width: 270px;
+    top: 0; right: -260px; bottom: 0;
+    width: 240px;
     min-height: 100dvh;
     transition: right .28s cubic-bezier(.4,0,.2,1);
   }

@@ -69,10 +69,12 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile overlay */}
-      <div
+      {/* Mobile overlay — button for iOS touch reliability */}
+      <button
         className={`sidebar-overlay${isOpen ? " sidebar-open" : ""}`}
         onClick={onClose}
+        aria-label="סגור תפריט"
+        style={{ border: "none", padding: 0, background: "none" }}
       />
 
       <aside className={`sidebar${isOpen ? " sidebar-open" : ""}`} style={{ display: "flex", flexDirection: "column" }}>
@@ -90,7 +92,8 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
           {onClose && (
             <button
               onClick={onClose}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", padding: 4, display: "flex", alignItems: "center" }}
+              aria-label="סגור"
+              style={{ background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", color: "#fff", padding: 8, display: "flex", alignItems: "center", borderRadius: 8, minWidth: 38, minHeight: 38, justifyContent: "center" }}
             >
               <X size={20} />
             </button>
