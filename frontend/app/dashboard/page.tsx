@@ -1,268 +1,217 @@
 "use client";
 
-import type { Group } from "@/types";
 import { useStore } from "@/lib/store";
-import { Users, UsersRound, UserCheck, Shield, ChevronLeft } from "lucide-react";
-
-function StatCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-  bg,
-}: {
-  label: string;
-  value: number;
-  icon: React.ElementType;
-  color: string;
-  bg: string;
-}) {
-  return (
-    <div
-      className="card"
-      style={{ padding: "20px 24px", display: "flex", alignItems: "center", gap: 16 }}
-    >
-      <div
-        style={{
-          width: 50,
-          height: 50,
-          borderRadius: 12,
-          background: bg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <Icon size={22} color={color} />
-      </div>
-      <div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: "var(--dark-navy)", lineHeight: 1 }}>
-          {value}
-        </div>
-        <div style={{ fontSize: 13, color: "var(--gray-text)", marginTop: 4 }}>{label}</div>
-      </div>
-    </div>
-  );
-}
+import { useRouter } from "next/navigation";
+import { Users, UsersRound, UserCheck, Shield, TrendingUp, AlertCircle, CheckCircle2, BarChart3 } from "lucide-react";
 
 export default function DashboardPage() {
   const { state } = useStore();
-  const { voters, groups, groupLeaders, divisionHeads } = state;
+  const { voters, groups, groupLeaders, divisionHeads, statuses } = state;
+  const router = useRouter();
 
-  const orphanGroups = groups.filter((g: Group) => !g.groupLeaderId);
+  const statusMap = new Map(statuses.map(s => [s.id, s]));
+  const supporters  = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "supporter").length;
+  const opponents   = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "opponent").length;
+  const undecided   = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "undecided").length;
+  const noStatus    = voters.filter(v => !v.statusId).length;
+  const total       = voters.length;
+  const pct = (n: number) => total ? Math.round((n / total) * 100) : 0;
+
+  const orphanGroups = groups.filter(g => !g.groupLeaderId);
+
+  const stats = [
+    { label: "בוחרים", value: total,              icon: Users,      color: "#209dd7", bg: "rgba(32,157,215,.1)",  href: "/voters" },
+    { label: "קבוצות", value: groups.length,       icon: UsersRound, color: "#f59e0b", bg: "rgba(245,158,11,.12)", href: "/groups" },
+    { label: "ראשי קבוצה", value: groupLeaders.length, icon: UserCheck, color: "#753991", bg: "rgba(117,57,145,.1)", href: "/group-leaders" },
+    { label: "ראשי אגף", value: divisionHeads.length,  icon: Shield,    color: "#0f172a", bg: "rgba(15,23,42,.08)", href: "/division-heads" },
+  ];
 
   return (
     <div>
       {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-          <span className="page-accent" />
-          <h1 style={{ fontSize: 24, fontWeight: 700, color: "var(--dark-navy)", margin: 0 }}>
-            לוח בקרה
-          </h1>
+      <div className="page-header" style={{ marginBottom: 28 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span className="page-accent" />
+            <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>לוח בקרה</h1>
+          </div>
+          <p style={{ color: "var(--gray-text)", fontSize: 13, marginTop: 4, marginRight: 14 }}>סקירה כללית של מערכת ניהול הבחירות</p>
         </div>
-        <p style={{ color: "var(--gray-text)", fontSize: 14, marginRight: 22 }}>
-          סקירה כללית של מערכת ניהול הבחירות
-        </p>
+        <button className="btn-primary" onClick={() => router.push("/reports")} style={{ gap: 7 }}>
+          <BarChart3 size={15} /> דוחות חכמים
+        </button>
       </div>
 
-      {/* Stats */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: 16,
-          marginBottom: 36,
-        }}
-      >
-        <StatCard
-          label="בוחרים"
-          value={voters.length}
-          icon={Users}
-          color="#209dd7"
-          bg="rgba(32,157,215,0.1)"
-        />
-        <StatCard
-          label="קבוצות"
-          value={groups.length}
-          icon={UsersRound}
-          color="#ecad0a"
-          bg="rgba(236,173,10,0.12)"
-        />
-        <StatCard
-          label="ראשי קבוצה"
-          value={groupLeaders.length}
-          icon={UserCheck}
-          color="#753991"
-          bg="rgba(117,57,145,0.1)"
-        />
-        <StatCard
-          label="ראשי אגף"
-          value={divisionHeads.length}
-          icon={Shield}
-          color="#032147"
-          bg="rgba(3,33,71,0.08)"
-        />
+      {/* Stat cards */}
+      <div className="grid-4" style={{ marginBottom: 24 }}>
+        {stats.map(({ label, value, icon: Icon, color, bg, href }) => (
+          <div key={label} className="stat-card" style={{ cursor: "pointer" }} onClick={() => router.push(href)}>
+            <div className="stat-icon" style={{ background: bg }}>
+              <Icon size={22} color={color} />
+            </div>
+            <div>
+              <div className="stat-value">{value}</div>
+              <div className="stat-label">{label}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* Hierarchy */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        {/* Hierarchy tree */}
-        <div className="card" style={{ padding: 24, gridColumn: "1 / -1" }}>
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: 15,
-              color: "var(--dark-navy)",
-              marginBottom: 20,
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <Shield size={16} color="var(--blue-primary)" />
-            היררכיית ניהול
-          </div>
+      {/* Support overview + orphans */}
+      <div className="grid-2" style={{ marginBottom: 24 }}>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {divisionHeads.map((dh) => (
-              <div key={dh.id}>
-                {/* Division Head */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "10px 14px",
-                    background: "rgba(3,33,71,0.05)",
-                    borderRadius: 10,
-                    borderRight: "4px solid var(--dark-navy)",
-                  }}
-                >
-                  <Shield size={15} color="var(--dark-navy)" />
-                  <span style={{ fontWeight: 700, color: "var(--dark-navy)", fontSize: 14 }}>
-                    ראש אגף: {dh.firstName} {dh.lastName}
-                  </span>
-                  <span className="badge badge-navy" style={{ marginRight: "auto" }}>
-                    {dh.groupLeaderIds.length} ראשי קבוצה
-                  </span>
-                </div>
-
-                {/* Group Leaders */}
-                <div style={{ marginRight: 24, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {dh.groupLeaderIds.map((glId) => {
-                    const gl = groupLeaders.find((g) => g.id === glId);
-                    if (!gl) return null;
-                    const glGroups = groups.filter((g) => gl.groupIds.includes(g.id));
-                    const voterCount = glGroups.reduce((sum, g) => sum + g.voterIds.length, 0);
-
-                    return (
-                      <div key={gl.id}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            padding: "8px 12px",
-                            background: "rgba(117,57,145,0.05)",
-                            borderRadius: 8,
-                            borderRight: "3px solid var(--purple-secondary)",
-                          }}
-                        >
-                          <UserCheck size={13} color="var(--purple-secondary)" />
-                          <span style={{ fontWeight: 600, color: "#4a2060", fontSize: 13 }}>
-                            ראש קבוצה: {gl.firstName} {gl.lastName}
-                          </span>
-                          <span className="badge badge-purple" style={{ marginRight: "auto" }}>
-                            {glGroups.length} קבוצות · {voterCount} בוחרים
-                          </span>
-                        </div>
-
-                        {/* Groups */}
-                        <div style={{ marginRight: 22, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
-                          {glGroups.map((g) => (
-                            <div
-                              key={g.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 6,
-                                padding: "5px 12px",
-                                background: "rgba(32,157,215,0.06)",
-                                borderRadius: 20,
-                                border: "1px solid rgba(32,157,215,0.2)",
-                                fontSize: 12,
-                              }}
-                            >
-                              <UsersRound size={11} color="var(--blue-primary)" />
-                              <span style={{ color: "var(--blue-primary)", fontWeight: 600 }}>
-                                {g.name}
-                              </span>
-                              <span style={{ color: "var(--gray-text)" }}>
-                                ({g.voterIds.length})
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent voters */}
+        {/* Support breakdown */}
         <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: "var(--dark-navy)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-            <Users size={15} color="var(--blue-primary)" />
-            בוחרים אחרונים
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+            <TrendingUp size={16} color="var(--blue-primary)" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>מצב תמיכה</span>
           </div>
-          {voters.slice(0, 6).map((v) => (
-            <div
-              key={v.id}
-              className="table-row"
-              style={{ padding: "10px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-            >
-              <div>
-                <div style={{ fontWeight: 600, fontSize: 13, color: "var(--dark-navy)" }}>
-                  {v.firstName} {v.lastName}
-                </div>
-                <div style={{ fontSize: 12, color: "var(--gray-text)" }}>
-                  {v.address.street} {v.address.streetNumber}, {v.address.city}
-                </div>
-              </div>
-              <span className="badge badge-blue">{v.groupIds.length} קבוצות</span>
-            </div>
-          ))}
-        </div>
 
-        {/* Orphan groups warning */}
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: "var(--dark-navy)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-            <UsersRound size={15} color="var(--accent-yellow)" />
-            קבוצות ללא ראש קבוצה
-          </div>
-          {orphanGroups.length === 0 ? (
-            <div style={{ color: "#16a34a", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-              <ChevronLeft size={14} />
-              כל הקבוצות מנוהלות
-            </div>
+          {total === 0 ? (
+            <p style={{ color: "var(--text-muted)", fontSize: 13 }}>אין בוחרים עדיין</p>
           ) : (
-            orphanGroups.map((g) => (
-              <div
-                key={g.id}
-                className="table-row"
-                style={{ padding: "10px 4px", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-              >
-                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dark-navy)" }}>{g.name}</span>
-                <span className="badge badge-red">ללא ראש קבוצה</span>
+            <>
+              {/* Stacked bar */}
+              <div style={{ display: "flex", height: 12, borderRadius: 6, overflow: "hidden", marginBottom: 16, gap: 2 }}>
+                {supporters > 0 && <div style={{ flex: supporters, background: "#22c55e", borderRadius: 6 }} />}
+                {opponents > 0  && <div style={{ flex: opponents,  background: "#ef4444", borderRadius: 6 }} />}
+                {undecided > 0  && <div style={{ flex: undecided,  background: "#f59e0b", borderRadius: 6 }} />}
+                {noStatus > 0   && <div style={{ flex: noStatus,   background: "#e2e8f0", borderRadius: 6 }} />}
               </div>
-            ))
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { label: "תומכים",   count: supporters, color: "#22c55e", bg: "rgba(34,197,94,.08)" },
+                  { label: "מתנגדים",  count: opponents,  color: "#ef4444", bg: "rgba(239,68,68,.08)" },
+                  { label: "מתלבטים", count: undecided,  color: "#f59e0b", bg: "rgba(245,158,11,.1)" },
+                  { label: "ללא סטטוס", count: noStatus,  color: "#94a3b8", bg: "rgba(148,163,184,.08)" },
+                ].map(({ label, count, color, bg }) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                    <span style={{ flex: 1, fontSize: 13, color: "var(--text-secondary)" }}>{label}</span>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: "var(--text-primary)" }}>{count}</span>
+                    <span style={{ background: bg, color, borderRadius: 20, padding: "1px 8px", fontSize: 11, fontWeight: 700, minWidth: 40, textAlign: "center" }}>{pct(count)}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
+
+        {/* Orphan groups + recent voters */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+          {/* Orphan groups */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              {orphanGroups.length > 0
+                ? <AlertCircle size={15} color="#f59e0b" />
+                : <CheckCircle2 size={15} color="#22c55e" />}
+              <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>קבוצות ללא ראש קבוצה</span>
+              {orphanGroups.length > 0 && (
+                <span className="badge badge-yellow" style={{ marginRight: "auto" }}>{orphanGroups.length}</span>
+              )}
+            </div>
+            {orphanGroups.length === 0 ? (
+              <p style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>✓ כל הקבוצות מנוהלות</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {orphanGroups.slice(0, 4).map(g => (
+                  <div key={g.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", background: "rgba(245,158,11,.06)", borderRadius: 8, border: "1px solid rgba(245,158,11,.15)" }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{g.name}</span>
+                    <span className="badge badge-yellow">{g.voterIds.length} בוחרים</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent voters */}
+          <div className="card" style={{ padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <Users size={15} color="var(--blue-primary)" />
+              <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>בוחרים אחרונים</span>
+              <button className="btn-secondary" style={{ marginRight: "auto", padding: "4px 12px", fontSize: 12 }} onClick={() => router.push("/voters")}>הכל</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {voters.slice(0, 5).map(v => {
+                const st = statusMap.get(v.statusId ?? "");
+                return (
+                  <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 6px", borderBottom: "1px solid var(--border-light)" }}>
+                    <div className="avatar" style={{ background: "linear-gradient(135deg,#209dd7,#753991)", width: 30, height: 30, fontSize: 11 }}>
+                      {v.firstName[0]}{v.lastName[0]}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {v.firstName} {v.lastName}
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{v.address.city}</div>
+                    </div>
+                    {st && (
+                      <span style={{ background: st.color + "22", color: st.color, borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" }}>
+                        {st.name}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hierarchy tree */}
+      <div className="card" style={{ padding: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+          <Shield size={16} color="var(--blue-primary)" />
+          <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>היררכיית ניהול</span>
+        </div>
+
+        {divisionHeads.length === 0 ? (
+          <p style={{ color: "var(--text-muted)", fontSize: 13 }}>אין ראשי אגף מוגדרים</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {divisionHeads.map(dh => {
+              const dhLeaders = groupLeaders.filter(l => dh.groupLeaderIds.includes(l.id));
+              return (
+                <div key={dh.id}>
+                  {/* Division head */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(15,23,42,.04)", borderRadius: 10, borderRight: "4px solid var(--navy)" }}>
+                    <Shield size={14} color="var(--navy)" />
+                    <span style={{ fontWeight: 700, fontSize: 14, color: "var(--navy)" }}>ראש אגף: {dh.firstName} {dh.lastName}</span>
+                    <span className="badge badge-navy" style={{ marginRight: "auto" }}>{dhLeaders.length} ראשי קבוצה</span>
+                  </div>
+
+                  {/* Group leaders */}
+                  <div style={{ marginRight: 20, marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+                    {dhLeaders.map(gl => {
+                      const glGroups = groups.filter(g => gl.groupIds.includes(g.id));
+                      const voterCount = glGroups.reduce((s, g) => s + g.voterIds.length, 0);
+                      return (
+                        <div key={gl.id}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "rgba(117,57,145,.04)", borderRadius: 8, borderRight: "3px solid var(--purple-secondary)" }}>
+                            <UserCheck size={13} color="var(--purple-secondary)" />
+                            <span style={{ fontWeight: 600, fontSize: 13, color: "#4a2060" }}>ראש קבוצה: {gl.firstName} {gl.lastName}</span>
+                            <span className="badge badge-purple" style={{ marginRight: "auto" }}>{glGroups.length} קבוצות · {voterCount} בוחרים</span>
+                          </div>
+                          <div style={{ marginRight: 20, marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {glGroups.map(g => (
+                              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: "rgba(32,157,215,.06)", borderRadius: 20, border: "1px solid rgba(32,157,215,.2)", fontSize: 12 }}>
+                                <UsersRound size={10} color="var(--blue-primary)" />
+                                <span style={{ color: "var(--blue-primary)", fontWeight: 600 }}>{g.name}</span>
+                                <span style={{ color: "var(--text-muted)" }}>({g.voterIds.length})</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
