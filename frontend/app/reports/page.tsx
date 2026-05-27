@@ -107,7 +107,7 @@ function ReportCard({ title, description, icon, reportKey, activeReport, onToggl
 
 // ── Voter list table with sort + pagination ───────────────────────────────────
 function VoterListTable({ voters, statuses, emptyText }: { voters: Voter[]; statuses: Status[]; emptyText: string }) {
-  const statusMap = new Map(statuses.map(s => [s.id, s]));
+  const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
   const [sortKey, setSortKey] = useState<VoterSortKey>("lastName");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [page, setPage] = useState(0);

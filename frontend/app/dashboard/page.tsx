@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import { Users, UsersRound, UserCheck, Shield, TrendingUp, AlertCircle, CheckCircle2, BarChart3, Vote } from "lucide-react";
@@ -9,7 +10,7 @@ export default function DashboardPage() {
   const { voters, groups, groupLeaders, divisionHeads, statuses } = state;
   const router = useRouter();
 
-  const statusMap = new Map(statuses.map(s => [s.id, s]));
+  const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
   const supporters = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "supporter").length;
   const opponents  = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "opponent").length;
   const undecided  = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "undecided").length;
