@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { Voter } from "@/types";
 import { generateId, formatAddress } from "@/lib/utils";
@@ -117,6 +117,22 @@ export default function VotersPage() {
 
   const { visible, hasMore, loadMore, showing, total } = usePagination(sorted);
 
+  // Mobile: attach loadMore to app-main scroll (voters page uses fixed-height on desktop,
+  // so on mobile we let #main-scroll drive pagination)
+  const loadMoreRef = useRef(loadMore);
+  useEffect(() => { loadMoreRef.current = loadMore; });
+  useEffect(() => {
+    const mainEl = document.getElementById("main-scroll");
+    if (!mainEl) return;
+    const onScroll = () => {
+      if (mainEl.scrollHeight - mainEl.scrollTop <= mainEl.clientHeight + 200) {
+        loadMoreRef.current();
+      }
+    };
+    mainEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => mainEl.removeEventListener("scroll", onScroll);
+  }, []);
+
   // Form handlers
   const openAdd  = () => { setForm(emptyVoter()); setEditing(null); setShowForm(true); };
   const openEdit = (v: Voter) => { setForm({ ...v, address: { ...v.address } }); setEditing(v); setShowForm(true); };
@@ -209,10 +225,10 @@ export default function VotersPage() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", gap: 0 }}>
+    <div className="voters-page">
 
       {/* ── Sticky top section ─────────────────────────────────────────────── */}
-      <div style={{ flexShrink: 0, marginBottom: 14 }}>
+      <div className="voters-filters" style={{ flexShrink: 0, marginBottom: 14 }}>
         <div className="page-header" style={{ marginBottom: 14 }}>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -261,7 +277,7 @@ export default function VotersPage() {
             <Search size={15} className="search-icon" />
             <input className="input" placeholder="חיפוש לפי שם, עיר, רחוב, ת.ז., טלפון..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {(["", "yes", "no"] as const).map((opt) => (
               <button key={opt} onClick={() => setFilterVoted(opt)}
                 style={{ padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", border: `1.5px solid ${filterVoted === opt ? (opt === "yes" ? "#22c55e" : opt === "no" ? "#ef4444" : "#209dd7") : "var(--border)"}`, background: filterVoted === opt ? (opt === "yes" ? "#f0fdf4" : opt === "no" ? "#fef2f2" : "rgba(32,157,215,0.08)") : "#fff", color: filterVoted === opt ? (opt === "yes" ? "#16a34a" : opt === "no" ? "#dc2626" : "var(--blue-primary)") : "var(--text-secondary)" }}>
@@ -280,7 +296,7 @@ export default function VotersPage() {
 
       {/* ── Scrollable table (desktop) ─────────────────────────────────────── */}
       <div className="card desktop-voter-table" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }} style={{ flex: 1, overflowY: "auto", minHeight: 0 }}>
+        <div onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }} style={{ flex: 1, overflowY: "auto", minHeight: 0, WebkitOverflowScrolling: "touch" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)", position: "sticky", top: 0, zIndex: 2 }}>
@@ -349,8 +365,9 @@ export default function VotersPage() {
       {/* ── Mobile card list (mobile only) ────────────────────────────────── */}
       <div className="mobile-voter-cards card" style={{ display: "none", flexDirection: "column", padding: 0, overflow: "hidden", flex: 1, minHeight: 0 }}>
         <div
+          className="mobile-voter-scroll"
           onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }}
-          style={{ flex: 1, overflowY: "auto", minHeight: 0 }}
+          style={{ flex: 1, overflowY: "auto", minHeight: 0, WebkitOverflowScrolling: "touch" }}
         >
           {filtered.length === 0 ? (
             <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)" }}>
