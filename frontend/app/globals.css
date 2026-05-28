@@ -345,11 +345,21 @@ td {
   border-radius: var(--radius-lg);
   padding: 20px 22px;
   box-shadow: var(--shadow-sm);
-  border: 1px solid var(--border-light);
+  border: 1px solid var(--border-light) !important;
   display: flex;
   align-items: center;
   gap: 16px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: box-shadow .15s, transform .1s;
+  width: 100%;
+  text-align: right;
+  font-family: inherit;
+  color: inherit;
 }
+.stat-card:hover { box-shadow: var(--shadow-md); }
+.stat-card:active { transform: scale(.98); }
 .stat-icon {
   width: 48px;
   height: 48px;

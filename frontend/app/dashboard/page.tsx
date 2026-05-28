@@ -48,13 +48,13 @@ export default function DashboardPage() {
       {/* Stat cards */}
       <div className="grid-4" style={{ marginBottom: 24 }}>
         {stats.map(({ label, value, icon: Icon, color, bg, href }) => (
-          <div key={label} className="stat-card" style={{ cursor: "pointer" }} onClick={() => router.push(href)}>
+          <button key={label} className="stat-card" onClick={() => router.push(href)} style={{ width: "100%", background: "none", border: "none", textAlign: "right", padding: 0 }}>
             <div className="stat-icon" style={{ background: bg }}><Icon size={22} color={color} /></div>
             <div>
               <div className="stat-value">{value}</div>
               <div className="stat-label">{label}</div>
             </div>
-          </div>
+          </button>
         ))}
       </div>
 
