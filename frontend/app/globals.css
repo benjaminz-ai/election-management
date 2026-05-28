@@ -639,4 +639,55 @@ td {
 
   /* Stack filter rows */
   .filter-row-2 { grid-template-columns: 1fr !important; }
+
+  /* Stack page header buttons */
+  .page-header { flex-direction: column; align-items: flex-start !important; }
+  .page-header > div:last-child { width: 100%; }
+  .page-header > div:last-child .btn-primary,
+  .page-header > div:last-child .btn-secondary { width: 100%; justify-content: center; }
+
+  /* Full-width buttons in card actions */
+  .modal-footer .btn-primary,
+  .modal-footer .btn-secondary { flex: 1; justify-content: center; }
+
+  /* Voting banner stack */
+  .voting-banner { flex-direction: column !important; align-items: flex-start !important; }
+}
+
+/* ════════════════════════════════════════
+   SHARED MOBILE UTILITIES
+════════════════════════════════════════ */
+/* Touch-friendly min sizes */
+@media (max-width: 768px) {
+  button, .btn-primary, .btn-secondary, .btn-icon {
+    min-height: 40px;
+    min-width: 40px;
+  }
+  .btn-icon { min-width: 36px; min-height: 36px; }
+
+  /* Larger tap targets for inputs */
+  .input, select, textarea {
+    min-height: 44px;
+    font-size: 16px !important; /* prevents iOS zoom */
+  }
+
+  /* Horizontal scroll for tables that can't be converted */
+  .table-mobile-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-lg);
+  }
+
+  /* Card padding on mobile */
+  .card { border-radius: 12px; }
+
+  /* Page spacing */
+  .page-header { margin-bottom: 16px !important; }
+
+  /* Summary stats: 2 cols */
+  .grid-4 { grid-template-columns: 1fr 1fr !important; }
+
+  /* Ensure modals don't exceed viewport */
+  .modal { overflow-y: auto; }
+  .modal form { display: flex; flex-direction: column; }
 }

@@ -167,7 +167,7 @@ export default function SearchPage() {
                 <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{buildingKey}</span>
                 <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, marginRight: "auto" }}>{buildingVoters.length} בוחרים</span>
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}><table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <tbody>
                   {buildingVoters.map((v) => {
                     const leader = getVoterLeader(v);
@@ -212,7 +212,7 @@ export default function SearchPage() {
       {/* Flat list */}
       {!visibleGroupedResults && results.length > 0 && (
         <div className="card" style={{ overflow: "hidden", padding: 0 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}><table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)" }}>
                 <th style={thStyle}>שם</th>

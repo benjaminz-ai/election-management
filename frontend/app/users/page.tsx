@@ -156,8 +156,8 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* Table card */}
-      <div className="card" style={{ overflow: "hidden", padding: 0 }}>
+      {/* Table card — desktop */}
+      <div className="card desktop-voter-table" style={{ overflow: "hidden", padding: 0 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)" }}>
@@ -274,6 +274,34 @@ export default function UsersPage() {
             לא נמצאו משתמשים התואמים את הסינון
           </div>
         )}
+        {filtered.length > 0 && <ScrollSentinel onIntersect={loadMore} />}
+        <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="משתמשים" />
+      </div>
+
+      {/* Mobile card list */}
+      <div className="mobile-voter-cards" style={{ display: "none", flexDirection: "column", gap: 10 }}>
+        {visibleUsers.map((u) => (
+          <div key={u.id} className="card" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, opacity: u.isFrozen ? 0.7 : 1 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, background: u.isFrozen ? "#e2e8f0" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", color: u.isFrozen ? "#94a3b8" : "#fff", fontWeight: 700, fontSize: 15 }}>
+              {u.firstName[0]}{u.lastName[0]}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: "var(--navy)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                {u.firstName} {u.lastName}
+                {u.id === currentUser?.id && <span style={{ fontSize: 11, color: "var(--blue-primary)", fontWeight: 400 }}>(אתה)</span>}
+                {u.isFrozen && <span style={{ fontSize: 11, color: "#94a3b8" }}>🔒 מוקפא</span>}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.email}</div>
+              <div style={{ marginTop: 6 }}>
+                <span className={`badge ${ROLE_BADGE[u.role]}`} style={{ fontSize: 11 }}>{ROLE_LABELS[u.role]}</span>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
+              <button className="btn-icon" onClick={() => openEdit(u)} style={{ minWidth: 36, minHeight: 36 }}><Pencil size={13} /></button>
+              <button className="btn-icon" onClick={() => handleFreeze(u)} style={{ minWidth: 36, minHeight: 36, color: u.isFrozen ? "#22c55e" : "#f59e0b" }} title={u.isFrozen ? "הסר הקפאה" : "הקפא"}><Snowflake size={13} /></button>
+            </div>
+          </div>
+        ))}
         {filtered.length > 0 && <ScrollSentinel onIntersect={loadMore} />}
         <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="משתמשים" />
       </div>
