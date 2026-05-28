@@ -451,7 +451,7 @@ export default function TelemarketingPage() {
                   תיעוד שיחה חדשה
                 </h3>
                 <form onSubmit={handleSave}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+                  <div className="form-2col" style={{ marginBottom: 14 }}>
                     <div>
                       <label style={{ display: "block", marginBottom: 5, color: "#374151", fontWeight: 600, fontSize: 12 }}>תוצאת השיחה <span style={{ color: "#dc2626" }}>*</span></label>
                       <select value={formCallStatusId} onChange={(e) => setFormCallStatusId(e.target.value)} required

@@ -231,7 +231,7 @@ export default function GroupLeadersPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div className="form-2col" style={{ marginBottom: 14 }}>
                 <div>
                   <label className="label">שם פרטי <span style={{ color: "#ef4444" }}>*</span></label>
                   <input className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
@@ -245,7 +245,7 @@ export default function GroupLeadersPage() {
                 <label className="label">מספר זהות <span style={{ color: "#ef4444" }}>*</span></label>
                 <input className="input" required value={form.uniqueId} onChange={(e) => setForm({ ...form, uniqueId: e.target.value })} placeholder="9 ספרות" />
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div className="form-2col" style={{ marginBottom: 14 }}>
                 <div>
                   <label className="label">טלפון</label>
                   <input className="input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="050-0000000" />

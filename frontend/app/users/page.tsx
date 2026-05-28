@@ -336,7 +336,7 @@ export default function UsersPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div className="form-2col" style={{ marginBottom: 14 }}>
                 <div>
                   <label className="label">שם פרטי <span style={{ color: "#ef4444" }}>*</span></label>
                   <input className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
@@ -346,7 +346,7 @@ export default function UsersPage() {
                   <input className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div className="form-2col" style={{ marginBottom: 14 }}>
                 <div>
                   <label className="label">אימייל <span style={{ color: "#ef4444" }}>*</span></label>
                   <input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} dir="ltr" style={{ textAlign: "left" }} />

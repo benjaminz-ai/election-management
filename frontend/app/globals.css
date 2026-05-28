@@ -630,6 +630,7 @@ td {
 }
 
 @media (max-width: 480px) {
+  .form-2col { grid-template-columns: 1fr !important; gap: 10px !important; }
   .grid-2, .grid-3, .grid-4,
   .resp-grid-2, .resp-grid-3, .resp-grid-4 { grid-template-columns: 1fr; }
 
