@@ -38,6 +38,7 @@ type StoreContextType = {
   addVoter: (voter: Voter) => void;
   updateVoter: (voter: Voter) => void;
   deleteVoter: (id: string) => void;
+  importVoters: (voters: Voter[]) => void;
   addGroup: (group: Group) => void;
   updateGroup: (group: Group) => void;
   deleteGroup: (id: string) => void;
@@ -211,6 +212,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   // ── Groups ────────────────────────────────────────────────────────────────────
+
+
+  const importVoters = (newVoters: Voter[]) => {
+    if (!newVoters.length) return;
+    setState((s) => ({ ...s, voters: [...s.voters, ...newVoters] }));
+    const batch = writeBatch(db);
+    newVoters.forEach((v) => batch.set(doc(db, "voters", v.id), v));
+    batch.commit().catch(console.error);
+  };
 
   const addGroup = (group: Group) => {
     setState((s) => {
@@ -492,6 +502,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addVoter,
         updateVoter,
         deleteVoter,
+        importVoters,
         addGroup,
         updateGroup,
         deleteGroup,

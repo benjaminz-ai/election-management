@@ -1,11 +1,12 @@
 "use client";
 
+import ImportVotersModal from "./ImportVotersModal";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { useStore } from "@/lib/store";
 import { Voter } from "@/types";
 import { generateId, formatAddress } from "@/lib/utils";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, ArrowUp, ArrowDown, ArrowUpDown, FileUp } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import PaginationFooter from "@/components/ui/PaginationFooter";
 
@@ -54,7 +55,7 @@ const emptyVoter = (): Voter => ({
 });
 
 export default function VotersPage() {
-  const { state, addVoter, updateVoter, deleteVoter } = useStore();
+  const { state, addVoter, updateVoter, deleteVoter, importVoters } = useStore();
   const { voters, groups, statuses } = state;
   const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
 
@@ -80,6 +81,7 @@ export default function VotersPage() {
 
   // Form
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editing, setEditing] = useState<Voter | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Voter | null>(null);
   const [form, setForm] = useState<Voter>(emptyVoter());
@@ -267,6 +269,9 @@ export default function VotersPage() {
                 </div>
               )}
             </div>
+            <button className="btn-secondary" onClick={() => setShowImport(true)} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <FileUp size={14} /> ייבוא
+            </button>
             <button className="btn-primary" onClick={openAdd}><Plus size={14} /> הוסף בוחר</button>
           </div>
         </div>
@@ -484,6 +489,15 @@ export default function VotersPage() {
 
       {deleteTarget && (
         <ConfirmDialog title="מחיקת בוחר" message={`האם למחוק את ${deleteTarget.firstName} ${deleteTarget.lastName}?`} confirmLabel="מחק" onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />
+      )}
+
+      {/* Import modal */}
+      {showImport && (
+        <ImportVotersModal
+          existingVoters={voters}
+          onImport={(newVoters) => importVoters(newVoters)}
+          onClose={() => setShowImport(false)}
+        />
       )}
 
       {/* Close col menu on outside click */}
