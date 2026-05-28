@@ -1,75 +1,67 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import {
-  LayoutDashboard,
-  Users,
-  UsersRound,
-  UserCheck,
-  Shield,
-  Search,
-  Tag,
-  PhoneCall,
-  MessageSquareMore,
-  UserCog,
-  LogOut,
-  Snowflake,
-  BarChart3,
-  X,
+  LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
+  PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
+  X, ChevronRight, ChevronLeft,
 } from "lucide-react";
 
 interface SidebarProps {
-  isOpen?: boolean;
+  isOpen?: boolean;    // mobile: controls slide-in
   onClose?: () => void;
 }
 
 const ROLE_LABELS: Record<string, string> = {
-  admin: "מנהל מערכת",
-  field: "שטח",
-  telemarketing: "טלמרקטינג",
-  group_leader: "ראש קבוצה",
-  division_head: "ראש אגף",
+  admin: "מנהל מערכת", field: "שטח", telemarketing: "טלמרקטינג",
+  group_leader: "ראש קבוצה", division_head: "ראש אגף",
 };
 
 const commonLinks = [
-  { href: "/dashboard", label: "לוח בקרה", icon: LayoutDashboard },
-  { href: "/telemarketing", label: "טלמרקטינג", icon: PhoneCall },
-  { href: "/voters", label: "בוחרים", icon: Users },
-  { href: "/groups", label: "קבוצות", icon: UsersRound },
-  { href: "/group-leaders", label: "ראשי קבוצה", icon: UserCheck },
-  { href: "/division-heads", label: "ראשי אגף", icon: Shield },
-  { href: "/reports", label: "דוחות", icon: BarChart3 },
-  { href: "/search", label: "חיפוש", icon: Search },
-  { href: "/statuses", label: "סטטוסי תמיכה", icon: Tag },
-  { href: "/call-statuses", label: "סטטוסי שיחה", icon: MessageSquareMore },
+  { href: "/dashboard",     label: "לוח בקרה",       icon: LayoutDashboard },
+  { href: "/telemarketing", label: "טלמרקטינג",      icon: PhoneCall },
+  { href: "/voters",        label: "בוחרים",          icon: Users },
+  { href: "/groups",        label: "קבוצות",          icon: UsersRound },
+  { href: "/group-leaders", label: "ראשי קבוצה",     icon: UserCheck },
+  { href: "/division-heads",label: "ראשי אגף",       icon: Shield },
+  { href: "/reports",       label: "דוחות",           icon: BarChart3 },
+  { href: "/search",        label: "חיפוש",           icon: Search },
+  { href: "/statuses",      label: "סטטוסי תמיכה",   icon: Tag },
+  { href: "/call-statuses", label: "סטטוסי שיחה",    icon: MessageSquareMore },
 ];
-
-const adminLinks = [
-  { href: "/users", label: "משתמשים", icon: UserCog },
-];
+const adminLinks = [{ href: "/users", label: "משתמשים", icon: UserCog }];
 
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
+  const router   = useRouter();
   const { currentUser, logout } = useAuth();
+
+  // Desktop collapse state — persisted in localStorage
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("sidebar_collapsed") === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("sidebar_collapsed", String(collapsed));
+  }, [collapsed]);
+
   const links = currentUser?.role === "admin"
     ? [...commonLinks, ...adminLinks]
     : commonLinks;
 
-  const handleLogout = () => {
-    logout();
-    router.replace("/login");
-  };
+  const handleLogout = () => { logout(); router.replace("/login"); };
+  const handleNav = (href: string) => { router.push(href); if (onClose) onClose(); };
+  const isMobile = !!onClose; // onClose is only passed on mobile
 
-  const handleNav = (href: string) => {
-    router.push(href);
-    if (onClose) onClose();
-  };
+  // On mobile never collapse
+  const isCollapsed = !isMobile && collapsed;
 
   return (
     <>
-      {/* Mobile overlay — button for iOS touch reliability */}
+      {/* Mobile overlay */}
       <button
         className={`sidebar-overlay${isOpen ? " sidebar-open" : ""}`}
         onClick={onClose}
@@ -77,69 +69,82 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         style={{ border: "none", padding: 0, background: "none" }}
       />
 
-      <aside className={`sidebar${isOpen ? " sidebar-open" : ""}`} style={{ display: "flex", flexDirection: "column" }}>
-        {/* Logo area */}
-        <div style={{ padding: "24px 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.08)", marginBottom: "8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Shield size={18} color="#fff" />
+      <aside
+        className={[
+          "sidebar",
+          isOpen ? "sidebar-open" : "",
+          isCollapsed ? "sidebar-collapsed" : "",
+        ].filter(Boolean).join(" ")}
+        style={{ display: "flex", flexDirection: "column" }}
+      >
+        {/* Header */}
+        <div className="sidebar-header">
+          {!isCollapsed && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Shield size={16} color="#fff" />
+              </div>
+              <div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>מערכת ניהול</div>
+                <div style={{ color: "#64748b", fontSize: 10 }}>בחירות MVP</div>
+              </div>
             </div>
-            <div>
-              <div style={{ color: "#fff", fontWeight: 700, fontSize: 15, lineHeight: 1.2 }}>מערכת ניהול</div>
-              <div style={{ color: "#64748b", fontSize: 11 }}>בחירות MVP</div>
-            </div>
-          </div>
-          {onClose && (
-            <button
-              onClick={onClose}
-              aria-label="סגור"
-              style={{ background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", color: "#fff", padding: 8, display: "flex", alignItems: "center", borderRadius: 8, minWidth: 38, minHeight: 38, justifyContent: "center" }}
-            >
+          )}
+
+          {/* Mobile: X close button | Desktop: collapse toggle */}
+          {isMobile ? (
+            <button onClick={onClose} aria-label="סגור"
+              style={{ background: "rgba(255,255,255,0.12)", border: "none", cursor: "pointer", color: "#fff", padding: 8, display: "flex", alignItems: "center", borderRadius: 8, minWidth: 38, minHeight: 38, justifyContent: "center", marginRight: isCollapsed ? "auto" : undefined }}>
               <X size={20} />
+            </button>
+          ) : (
+            <button onClick={() => setCollapsed(c => !c)} aria-label={collapsed ? "פרוס תפריט" : "צמצם תפריט"}
+              style={{ background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", color: "#94a3b8", padding: 7, display: "flex", alignItems: "center", borderRadius: 8, minWidth: 34, minHeight: 34, justifyContent: "center", marginRight: isCollapsed ? "auto" : undefined, flexShrink: 0 }}>
+              {collapsed ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
             </button>
           )}
         </div>
 
-        {/* Nav links */}
-        <nav style={{ flex: 1, paddingTop: 4, overflowY: "auto" }}>
+        {/* Nav */}
+        <nav style={{ flex: 1, paddingTop: 6, overflowY: "auto", overflowX: "hidden" }}>
           {links.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             return (
-              <button
-                key={href}
-                className={`sidebar-link${active ? " active" : ""}`}
+              <button key={href}
+                className={`sidebar-link${active ? " active" : ""}${isCollapsed ? " sidebar-link-icon" : ""}`}
                 onClick={() => handleNav(href)}
+                title={isCollapsed ? label : undefined}
               >
-                <Icon size={17} />
-                <span>{label}</span>
+                <Icon size={18} />
+                {!isCollapsed && <span>{label}</span>}
               </button>
             );
           })}
         </nav>
 
-        {/* Current user + logout */}
+        {/* User footer */}
         {currentUser && (
-          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: "14px 16px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: "50%", background: currentUser.isFrozen ? "#334155" : "linear-gradient(135deg, #209dd7, #753991)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff", fontWeight: 700, fontSize: 12 }}>
-                {currentUser.firstName[0]}{currentUser.lastName[0]}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {currentUser.firstName} {currentUser.lastName}
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: isCollapsed ? "12px 8px" : "12px 14px" }}>
+            {!isCollapsed && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: "50%", background: currentUser.isFrozen ? "#334155" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff", fontWeight: 700, fontSize: 11 }}>
+                  {currentUser.firstName[0]}{currentUser.lastName[0]}
                 </div>
-                <div style={{ color: "#64748b", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                  {currentUser.isFrozen && <Snowflake size={10} color="#64748b" />}
-                  {ROLE_LABELS[currentUser.role] ?? currentUser.role}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    {currentUser.firstName} {currentUser.lastName}
+                  </div>
+                  <div style={{ color: "#64748b", fontSize: 10, display: "flex", alignItems: "center", gap: 3 }}>
+                    {currentUser.isFrozen && <Snowflake size={9} color="#64748b" />}
+                    {ROLE_LABELS[currentUser.role] ?? currentUser.role}
+                  </div>
                 </div>
               </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, color: "#f87171", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-            >
-              <LogOut size={14} />
-              יציאה מהמערכת
+            )}
+            <button onClick={handleLogout} title={isCollapsed ? "יציאה" : undefined}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: isCollapsed ? "center" : "flex-start", gap: 8, padding: isCollapsed ? "8px" : "7px 10px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, color: "#f87171", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              <LogOut size={15} />
+              {!isCollapsed && <span>יציאה מהמערכת</span>}
             </button>
           </div>
         )}
