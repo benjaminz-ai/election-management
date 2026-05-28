@@ -52,9 +52,18 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     ? [...commonLinks, ...adminLinks]
     : commonLinks;
 
+  const [isMobileView, setIsMobileView] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    setIsMobileView(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const handleLogout = () => { logout(); router.replace("/login"); };
   const handleNav = (href: string) => { router.push(href); if (onClose) onClose(); };
-  const isMobile = !!onClose; // onClose is only passed on mobile
+  const isMobile = isMobileView;
 
   // On mobile never collapse
   const isCollapsed = !isMobile && collapsed;
