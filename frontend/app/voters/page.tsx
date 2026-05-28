@@ -83,6 +83,8 @@ export default function VotersPage() {
   // Form
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const desktopTableRef = useRef<HTMLDivElement>(null);
+  const mobileListRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<Voter | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Voter | null>(null);
   const [form, setForm] = useState<Voter>(emptyVoter());
@@ -301,7 +303,7 @@ export default function VotersPage() {
 
       {/* ── Scrollable table (desktop) ─────────────────────────────────────── */}
       <div className="card desktop-voter-table" style={{ padding: 0, overflow: "hidden" }}>
-        <div>
+        <div ref={desktopTableRef} style={{ overflowY: "auto", maxHeight: "calc(100vh - 300px)" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)", position: "sticky", top: 0, zIndex: 2 }}>
@@ -355,7 +357,7 @@ export default function VotersPage() {
             </tbody>
           </table>
 
-          {hasMore && <ScrollSentinel onIntersect={loadMore} />}
+          <ScrollSentinel onIntersect={loadMore} root={desktopTableRef.current} />
           {filtered.length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon"><Users size={28} color="var(--text-muted)" /></div>
@@ -371,7 +373,9 @@ export default function VotersPage() {
       {/* ── Mobile card list (mobile only) ────────────────────────────────── */}
       <div className="mobile-voter-cards card" style={{ display: "none", padding: 0, overflow: "hidden" }}>
         <div
+          ref={mobileListRef}
           className="mobile-voter-scroll"
+          style={{ overflowY: "auto", maxHeight: "calc(100vh - 240px)" }}
         >
           {filtered.length === 0 ? (
             <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)" }}>
@@ -426,7 +430,7 @@ export default function VotersPage() {
               );
             })
           )}
-          {hasMore && <ScrollSentinel onIntersect={loadMore} />}
+          <ScrollSentinel onIntersect={loadMore} root={mobileListRef.current} />
         </div>
         <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
       </div>
