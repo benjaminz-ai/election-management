@@ -90,7 +90,7 @@ export default function DivisionHeadsPage() {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {visibleDivisionHeads.map((dh) => {
-          const dhLeaders = groupLeaders.filter((gl) => dh.groupLeaderIds.includes(gl.id));
+          const dhLeaders = groupLeaders.filter((gl) => gl.divisionHeadId === dh.id);
           const totalGroups = dhLeaders.flatMap((gl) => gl.groupIds).length;
           const totalVoters = dhLeaders
             .flatMap((gl) => groups.filter((g) => gl.groupIds.includes(g.id)))
