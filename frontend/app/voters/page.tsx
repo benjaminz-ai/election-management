@@ -7,6 +7,8 @@ import { Voter } from "@/types";
 import { generateId, formatAddress } from "@/lib/utils";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, ArrowUp, ArrowDown, ArrowUpDown, FileUp } from "lucide-react";
+import { usePagination } from "@/hooks/usePagination";
+import PaginationFooter from "@/components/ui/PaginationFooter";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 type ColId = "name" | "phone" | "address" | "status" | "voted" | "groups";
@@ -53,7 +55,7 @@ const emptyVoter = (): Voter => ({
 });
 
 export default function VotersPage() {
-  const { state, addVoter, updateVoter, deleteVoter, importVoters, loadMoreVoters, votersLoading, votersAllLoaded } = useStore();
+  const { state, addVoter, updateVoter, deleteVoter, importVoters } = useStore();
   const { voters, groups, statuses } = state;
   const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
 
@@ -115,23 +117,22 @@ export default function VotersPage() {
     });
   }, [filtered, sortKey, sortDir, statusMap]);
 
-  // All loaded voters are shown (Firestore paginates via loadMoreVoters)
-  const visible = sorted;
-  const showing = sorted.length;
-  const total = sorted.length;
+  const { visible, hasMore, loadMore, showing, total } = usePagination(sorted);
 
-  // Single scroll listener on #main-scroll for Firestore pagination
+  // Stable ref so the scroll listener always calls the latest loadMore
+  const loadMoreRef = useRef(loadMore);
+  useEffect(() => { loadMoreRef.current = loadMore; });
   useEffect(() => {
     const mainEl = document.getElementById("main-scroll");
     if (!mainEl) return;
     const onScroll = () => {
       if (mainEl.scrollHeight - mainEl.scrollTop <= mainEl.clientHeight + 300) {
-        loadMoreVoters();
+        loadMoreRef.current();
       }
     };
     mainEl.addEventListener("scroll", onScroll, { passive: true });
     return () => mainEl.removeEventListener("scroll", onScroll);
-  }, [loadMoreVoters]);
+  }, []);
 
   // Form handlers
   const openAdd  = () => { setForm(emptyVoter()); setEditing(null); setShowForm(true); };
@@ -362,13 +363,7 @@ export default function VotersPage() {
             </div>
           )}
         </div>
-        {/* Loading indicator */}
-        {votersLoading && (
-          <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: 13 }}>טוען עוד בוחרים...</div>
-        )}
-        {!votersLoading && !votersAllLoaded && sorted.length > 0 && (
-          <div style={{ textAlign: "center", padding: "10px", color: "var(--text-muted)", fontSize: 12 }}>גלול למטה לטעינת עוד</div>
-        )}
+        <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
       </div>
 
       {/* ── Mobile card list (mobile only) ────────────────────────────────── */}
@@ -430,13 +425,7 @@ export default function VotersPage() {
             })
           )}
         </div>
-        {/* Loading indicator */}
-        {votersLoading && (
-          <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: 13 }}>טוען עוד בוחרים...</div>
-        )}
-        {!votersLoading && !votersAllLoaded && sorted.length > 0 && (
-          <div style={{ textAlign: "center", padding: "10px", color: "var(--text-muted)", fontSize: 12 }}>גלול למטה לטעינת עוד</div>
-        )}
+        <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
       </div>
 
       {/* ── Modal ──────────────────────────────────────────────────────────── */}
