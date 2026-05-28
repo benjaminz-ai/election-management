@@ -14,7 +14,11 @@ export default function DashboardPage() {
   const supporters = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "supporter").length;
   const opponents  = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "opponent").length;
   const undecided  = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "undecided").length;
-  const noStatus   = voters.filter(v => !v.statusId).length;
+  const noStatus   = voters.filter(v => {
+    if (!v.statusId) return true;
+    const cat = statusMap.get(v.statusId)?.category;
+    return !cat || cat === "neutral";
+  }).length;
   const total      = voters.length;
   const totalVoted = voters.filter(v => v.hasVoted).length;
   const votingPct  = total > 0 ? Math.round((totalVoted / total) * 100) : 0;
@@ -223,12 +227,4 @@ export default function DashboardPage() {
                         );
                       })}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-      </div>
-    </div>
-  );
-}
+      
