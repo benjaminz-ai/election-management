@@ -216,9 +216,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const importVoters = (newVoters: Voter[]) => {
     if (!newVoters.length) return;
-    setState((s) => ({ ...s, voters: [...s.voters, ...newVoters] }));
+
+    // Build map: groupId → new voter IDs to add
+    const byGroup = new Map<string, string[]>();
+    newVoters.forEach((v) => {
+      v.groupIds.forEach((gid) => {
+        const arr = byGroup.get(gid) ?? [];
+        arr.push(v.id);
+        byGroup.set(gid, arr);
+      });
+    });
+
+    // Update local state
+    setState((s) => {
+      const updatedGroups = byGroup.size > 0
+        ? s.groups.map((g) => {
+            const ids = byGroup.get(g.id);
+            return ids ? { ...g, voterIds: [...g.voterIds, ...ids] } : g;
+          })
+        : s.groups;
+      return { ...s, voters: [...s.voters, ...newVoters], groups: updatedGroups };
+    });
+
+    // Persist to Firestore
     const batch = writeBatch(db);
     newVoters.forEach((v) => batch.set(doc(db, "voters", v.id), v));
+    byGroup.forEach((voterIds, groupId) => {
+      batch.update(doc(db, "groups", groupId), { voterIds: arrayUnion(...voterIds) });
+    });
     batch.commit().catch(console.error);
   };
 

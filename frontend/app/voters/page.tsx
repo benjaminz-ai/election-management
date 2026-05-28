@@ -9,6 +9,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, ArrowUp, ArrowDown, ArrowUpDown, FileUp } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import PaginationFooter from "@/components/ui/PaginationFooter";
+import ScrollSentinel from "@/components/ui/ScrollSentinel";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 type ColId = "name" | "phone" | "address" | "status" | "voted" | "groups";
@@ -82,6 +83,8 @@ export default function VotersPage() {
   // Form
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [desktopScrollEl, setDesktopScrollEl] = useState<HTMLDivElement | null>(null);
+  const [mobileScrollEl, setMobileScrollEl] = useState<HTMLDivElement | null>(null);
   const [editing, setEditing] = useState<Voter | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Voter | null>(null);
   const [form, setForm] = useState<Voter>(emptyVoter());
@@ -301,7 +304,7 @@ export default function VotersPage() {
 
       {/* ── Scrollable table (desktop) ─────────────────────────────────────── */}
       <div className="card desktop-voter-table" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }} style={{ flex: 1, overflowY: "auto", minHeight: 0, WebkitOverflowScrolling: "touch" }}>
+        <div ref={setDesktopScrollEl} onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }} style={{ flex: 1, overflowY: "auto", minHeight: 0, WebkitOverflowScrolling: "touch" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)", position: "sticky", top: 0, zIndex: 2 }}>
@@ -355,6 +358,7 @@ export default function VotersPage() {
             </tbody>
           </table>
 
+          <ScrollSentinel onIntersect={loadMore} root={desktopScrollEl} />
           {filtered.length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon"><Users size={28} color="var(--text-muted)" /></div>
@@ -370,6 +374,7 @@ export default function VotersPage() {
       {/* ── Mobile card list (mobile only) ────────────────────────────────── */}
       <div className="mobile-voter-cards card" style={{ display: "none", flexDirection: "column", padding: 0, overflow: "hidden", flex: 1, minHeight: 0 }}>
         <div
+          ref={setMobileScrollEl}
           className="mobile-voter-scroll"
           onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }}
           style={{ flex: 1, overflowY: "auto", minHeight: 0, WebkitOverflowScrolling: "touch" }}
@@ -495,6 +500,7 @@ export default function VotersPage() {
       {showImport && (
         <ImportVotersModal
           existingVoters={voters}
+          groups={groups}
           onImport={(newVoters) => importVoters(newVoters)}
           onClose={() => setShowImport(false)}
         />

@@ -5,7 +5,7 @@ import {
   Upload, Download, X, CheckCircle, AlertCircle, FileText, Users,
   ChevronDown, ChevronUp,
 } from "lucide-react";
-import { Voter } from "@/types";
+import { Voter, Group } from "@/types";
 import { generateId } from "@/lib/utils";
 
 // ── Field definitions ──────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ type ParsedRow = {
   building: string;
   apartment: string;
   city: string;
+  groupNames: string[];
 };
 
 type ImportResult = {
@@ -55,10 +56,13 @@ function parseCSV(text: string): string[][] {
 }
 
 // ── Template download ─────────────────────────────────────────────────────────
-function downloadTemplate() {
+function downloadTemplate(groups: Group[]) {
   const bom = "\uFEFF"; // UTF-8 BOM so Excel opens Hebrew correctly
-  const exampleRow = 'ישראל,ישראלי,123456789,050-0000000,הרצל,5,א,12,תל אביב';
-  const csv = bom + HEADERS.join(",") + "\n" + exampleRow;
+  const groupHeaders = groups.map((g) => g.name);
+  const allHeaders = [...HEADERS, ...groupHeaders];
+  const groupExamples = groups.map(() => "0");
+  const exampleRow = ["ישראל","ישראלי","123456789","050-0000000","הרצל","5","א","12","תל אביב",...groupExamples].join(",");
+  const csv = bom + allHeaders.join(",") + "\n" + exampleRow;
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -142,10 +146,12 @@ function CollapsibleList({
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function ImportVotersModal({
   existingVoters,
+  groups,
   onImport,
   onClose,
 }: {
   existingVoters: Voter[];
+  groups: Group[];
   onImport: (voters: Voter[]) => void;
   onClose: () => void;
 }) {
@@ -193,6 +199,11 @@ export default function ImportVotersModal({
         const get = (row: string[], header: string) =>
           row[headers.indexOf(header)]?.trim() ?? "";
 
+        // Detect group columns — any column whose name matches a group in the system
+        const groupColNames = groups
+          .map((g) => g.name)
+          .filter((name) => headers.includes(name));
+
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
           // Skip completely blank lines
@@ -219,6 +230,7 @@ export default function ImportVotersModal({
             building:     get(row, "בניין"),
             apartment:    get(row, "דירה"),
             city:         get(row, "עיר"),
+            groupNames:   groupColNames.filter((name) => get(row, name) === "1"),
           };
 
           if (existingIds.has(parsed.uniqueId)) {
@@ -242,6 +254,7 @@ export default function ImportVotersModal({
 
   const handleConfirm = () => {
     if (!result) return;
+    const groupIdsByName = new Map(groups.map((g) => [g.name, g.id]));
     const newVoters: Voter[] = result.toImport.map((r) => ({
       id: generateId(),
       firstName: r.firstName,
@@ -255,7 +268,9 @@ export default function ImportVotersModal({
         apartment: r.apartment,
         city: r.city,
       },
-      groupIds: [],
+      groupIds: r.groupNames
+        .map((name) => groupIdsByName.get(name))
+        .filter((id): id is string => !!id),
       hasVoted: false,
     }));
     onImport(newVoters);
@@ -314,7 +329,7 @@ export default function ImportVotersModal({
               </div>
               <button
                 className="btn-secondary"
-                onClick={downloadTemplate}
+                onClick={() => downloadTemplate(groups)}
                 style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, fontSize: 12 }}
               >
                 <Download size={13} /> תבנית CSV
@@ -378,6 +393,25 @@ export default function ImportVotersModal({
                   </span>
                 ))}
               </div>
+              {groups.length > 0 && (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gray-text)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 6 }}>
+                    קבוצות במערכת (1 = שייך לקבוצה)
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {groups.map((g) => (
+                      <span key={g.id} style={{
+                        padding: "3px 10px", borderRadius: 20,
+                        background: "rgba(117,57,145,.08)",
+                        border: "1px solid rgba(117,57,145,.25)",
+                        fontSize: 12, color: "var(--purple-secondary)", fontWeight: 500,
+                      }}>
+                        {g.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
                 שדות עם * חובה · שאר השדות אופציונליים
               </div>
