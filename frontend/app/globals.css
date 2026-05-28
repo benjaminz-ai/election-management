@@ -536,15 +536,27 @@ td {
    MOBILE ≤ 768px
 ════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* Sidebar slides in from right */
+  /* Sidebar slides in from right — transform is reliable across all browsers */
   .sidebar {
-    position: fixed;
-    top: 0; right: -250px; bottom: 0;
-    width: 235px;
+    position: fixed !important;
+    top: 0 !important; right: 0 !important; bottom: 0 !important;
+    width: 240px !important;
     min-height: 100dvh;
-    transition: right .28s cubic-bezier(.4,0,.2,1);
+    transform: translateX(110%);
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+    z-index: 200;
   }
-  .sidebar.sidebar-open { right: 0; box-shadow: -6px 0 32px rgba(0,0,0,.28); }
+  .sidebar.sidebar-open {
+    transform: translateX(0) !important;
+    box-shadow: -6px 0 32px rgba(0,0,0,.3);
+  }
+  /* On mobile never collapse — always full width */
+  .sidebar.sidebar-collapsed {
+    width: 240px !important;
+    transform: translateX(110%);
+  }
+  .sidebar.sidebar-collapsed .sidebar-link-icon span { display: inline !important; }
+  .sidebar.sidebar-collapsed.sidebar-open { transform: translateX(0) !important; }
   .sidebar-overlay.sidebar-open { display: block; }
 
   /* Show mobile header */
