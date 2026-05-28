@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
-import { Shield, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
@@ -64,25 +64,8 @@ export default function LoginPage() {
       >
         {/* Logo */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 36 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 18,
-              background: "linear-gradient(135deg, #209dd7, #753991)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 16,
-              boxShadow: "0 8px 24px rgba(32,157,215,0.35)",
-            }}
-          >
-            <Shield size={30} color="#fff" />
-          </div>
-          <div style={{ fontWeight: 800, fontSize: 22, color: "#032147", letterSpacing: "-0.3px" }}>
-            מערכת ניהול בחירות
-          </div>
-          <div style={{ color: "#64748b", fontSize: 14, marginTop: 6 }}>כניסה למערכת</div>
+          <img src="/logo.svg" alt="Voters4U" style={{ height: 90, width: "auto", marginBottom: 12 }} />
+          <div style={{ color: "#64748b", fontSize: 14, marginTop: 4 }}>כניסה למערכת</div>
         </div>
 
         <form onSubmit={handleSubmit}>

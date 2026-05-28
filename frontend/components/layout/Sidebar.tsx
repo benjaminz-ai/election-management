@@ -89,14 +89,8 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* Header */}
         <div className="sidebar-header">
           {!isCollapsed && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 34, height: 34, borderRadius: 10, background: "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <Shield size={16} color="#fff" />
-              </div>
-              <div>
-                <div style={{ color: "#fff", fontWeight: 700, fontSize: 14, lineHeight: 1.2 }}>מערכת ניהול</div>
-                <div style={{ color: "#64748b", fontSize: 10 }}>בחירות MVP</div>
-              </div>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <img src="/logo-white.svg" alt="Voters4U" style={{ height: 36, width: "auto" }} />
             </div>
           )}
 
