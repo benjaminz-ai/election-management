@@ -9,6 +9,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, ArrowUp, ArrowDown, ArrowUpDown, FileUp } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import PaginationFooter from "@/components/ui/PaginationFooter";
+import ScrollSentinel from "@/components/ui/ScrollSentinel";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 type ColId = "name" | "phone" | "address" | "status" | "voted" | "groups";
@@ -117,7 +118,7 @@ export default function VotersPage() {
     });
   }, [filtered, sortKey, sortDir, statusMap]);
 
-  const { visible, hasMore, loadMore, showing, total } = usePagination(sorted);
+  const { visible, hasMore, loadMore, showing, total } = usePagination(sorted, 20);
 
   // Stable ref so the scroll listener always calls the latest loadMore
   const loadMoreRef = useRef(loadMore);
@@ -354,6 +355,7 @@ export default function VotersPage() {
             </tbody>
           </table>
 
+          {hasMore && <ScrollSentinel onIntersect={loadMore} />}
           {filtered.length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon"><Users size={28} color="var(--text-muted)" /></div>
@@ -424,6 +426,7 @@ export default function VotersPage() {
               );
             })
           )}
+          {hasMore && <ScrollSentinel onIntersect={loadMore} />}
         </div>
         <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
       </div>
