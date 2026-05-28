@@ -5,7 +5,7 @@ import {
   Upload, Download, X, CheckCircle, AlertCircle, FileText, Users,
   ChevronDown, ChevronUp,
 } from "lucide-react";
-import { Voter, Group } from "@/types";
+import { Voter, Group, Status } from "@/types";
 import { generateId } from "@/lib/utils";
 
 // ── Field definitions ──────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ type ParsedRow = {
   apartment: string;
   city: string;
   groupNames: string[];
+  statusName: string;
 };
 
 type ImportResult = {
@@ -56,12 +57,14 @@ function parseCSV(text: string): string[][] {
 }
 
 // ── Template download ─────────────────────────────────────────────────────────
-function downloadTemplate(groups: Group[]) {
+function downloadTemplate(groups: Group[], statuses: Status[]) {
   const bom = "\uFEFF"; // UTF-8 BOM so Excel opens Hebrew correctly
   const groupHeaders = groups.map((g) => g.name);
-  const allHeaders = [...HEADERS, ...groupHeaders];
+  const statusHeaders = statuses.map((s) => s.name);
+  const allHeaders = [...HEADERS, ...groupHeaders, ...statusHeaders];
   const groupExamples = groups.map(() => "0");
-  const exampleRow = ["ישראל","ישראלי","123456789","050-0000000","הרצל","5","א","12","תל אביב",...groupExamples].join(",");
+  const statusExamples = statuses.map(() => "0");
+  const exampleRow = ["ישראל","ישראלי","123456789","050-0000000","הרצל","5","א","12","תל אביב",...groupExamples,...statusExamples].join(",");
   const csv = bom + allHeaders.join(",") + "\n" + exampleRow;
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -147,11 +150,13 @@ function CollapsibleList({
 export default function ImportVotersModal({
   existingVoters,
   groups,
+  statuses,
   onImport,
   onClose,
 }: {
   existingVoters: Voter[];
   groups: Group[];
+  statuses: Status[];
   onImport: (voters: Voter[]) => void;
   onClose: () => void;
 }) {
@@ -204,6 +209,11 @@ export default function ImportVotersModal({
           .map((g) => g.name)
           .filter((name) => headers.includes(name));
 
+        // Detect status columns — any column whose name matches a status in the system
+        const statusColNames = statuses
+          .map((s) => s.name)
+          .filter((name) => headers.includes(name));
+
         for (let i = 1; i < rows.length; i++) {
           const row = rows[i];
           // Skip completely blank lines
@@ -231,6 +241,8 @@ export default function ImportVotersModal({
             apartment:    get(row, "דירה"),
             city:         get(row, "עיר"),
             groupNames:   groupColNames.filter((name) => get(row, name) === "1"),
+            // Only first status with "1" wins (voter can have one status)
+            statusName:   statusColNames.find((name) => get(row, name) === "1") ?? "",
           };
 
           if (existingIds.has(parsed.uniqueId)) {
@@ -255,6 +267,7 @@ export default function ImportVotersModal({
   const handleConfirm = () => {
     if (!result) return;
     const groupIdsByName = new Map(groups.map((g) => [g.name, g.id]));
+    const statusIdByName = new Map(statuses.map((s) => [s.name, s.id]));
     const newVoters: Voter[] = result.toImport.map((r) => ({
       id: generateId(),
       firstName: r.firstName,
@@ -271,6 +284,7 @@ export default function ImportVotersModal({
       groupIds: r.groupNames
         .map((name) => groupIdsByName.get(name))
         .filter((id): id is string => !!id),
+      statusId: r.statusName ? statusIdByName.get(r.statusName) : undefined,
       hasVoted: false,
     }));
     onImport(newVoters);
@@ -329,7 +343,7 @@ export default function ImportVotersModal({
               </div>
               <button
                 className="btn-secondary"
-                onClick={() => downloadTemplate(groups)}
+                onClick={() => downloadTemplate(groups, statuses)}
                 style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0, fontSize: 12 }}
               >
                 <Download size={13} /> תבנית CSV
@@ -407,6 +421,25 @@ export default function ImportVotersModal({
                         fontSize: 12, color: "var(--purple-secondary)", fontWeight: 500,
                       }}>
                         {g.name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {statuses.length > 0 && (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gray-text)", textTransform: "uppercase", letterSpacing: ".04em", marginBottom: 6 }}>
+                    סטטוסים (1 = שייך לסטטוס זה · רק סטטוס אחד)
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {statuses.map((s) => (
+                      <span key={s.id} style={{
+                        padding: "3px 10px", borderRadius: 20,
+                        background: s.color + "18",
+                        border: `1px solid ${s.color}44`,
+                        fontSize: 12, color: s.color, fontWeight: 500,
+                      }}>
+                        {s.name}
                       </span>
                     ))}
                   </div>

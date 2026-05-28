@@ -501,6 +501,7 @@ export default function VotersPage() {
         <ImportVotersModal
           existingVoters={voters}
           groups={groups}
+          statuses={statuses}
           onImport={(newVoters) => importVoters(newVoters)}
           onClose={() => setShowImport(false)}
         />
