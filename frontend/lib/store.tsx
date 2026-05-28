@@ -30,6 +30,11 @@ import {
   writeBatch,
   arrayUnion,
   arrayRemove,
+  query,
+  orderBy,
+  limit,
+  startAfter,
+  QueryDocumentSnapshot,
 } from "firebase/firestore";
 
 type StoreContextType = {
@@ -59,6 +64,9 @@ type StoreContextType = {
   updateUser: (user: AppUser) => void;
   freezeUser: (id: string, frozen: boolean) => void;
   refreshUsers: () => Promise<void>;
+  loadMoreVoters: () => Promise<void>;
+  votersLoading: boolean;
+  votersAllLoaded: boolean;
 };
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -86,10 +94,12 @@ async function seedFirestore(data: AppState) {
   await batch.commit();
 }
 
-async function loadFromFirestore(): Promise<AppState | null> {
+const VOTER_BATCH = 50;
+
+async function loadFromFirestore(): Promise<{ state: AppState | null; lastVoterDoc: QueryDocumentSnapshot | null; votersAllLoaded: boolean }> {
   const [votersSnap, groupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap] =
     await Promise.all([
-      getDocs(collection(db, "voters")),
+      getDocs(query(collection(db, "voters"), orderBy("__name__"), limit(VOTER_BATCH))),
       getDocs(collection(db, "groups")),
       getDocs(collection(db, "groupLeaders")),
       getDocs(collection(db, "divisionHeads")),
@@ -106,10 +116,15 @@ async function loadFromFirestore(): Promise<AppState | null> {
   const callStatuses = callStatusesSnap.docs.map((d: { data(): unknown }) => d.data() as CallStatus);
   const users = usersSnap.docs.map((d: { data(): unknown }) => d.data() as AppUser);
 
+  const lastVoterDoc = votersSnap.docs.length > 0
+    ? votersSnap.docs[votersSnap.docs.length - 1] as QueryDocumentSnapshot
+    : null;
+  const votersAllLoaded = votersSnap.docs.length < VOTER_BATCH;
+
   if (voters.length === 0 && groups.length === 0 && groupLeaders.length === 0) {
-    return null;
+    return { state: null, lastVoterDoc: null, votersAllLoaded: true };
   }
-  return {
+  return { state: {
     voters,
     groups,
     groupLeaders,
@@ -117,20 +132,26 @@ async function loadFromFirestore(): Promise<AppState | null> {
     statuses: statuses.length > 0 ? statuses : initialStatuses,
     callStatuses: callStatuses.length > 0 ? callStatuses : initialCallStatuses,
     users: users.length > 0 ? users : initialUsers,
-  };
+  }, lastVoterDoc, votersAllLoaded };
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(EMPTY_STATE);
   const [loading, setLoading] = useState(true);
+  const [votersLoading, setVotersLoading] = useState(false);
+  const [votersAllLoaded, setVotersAllLoaded] = useState(false);
+  const votersCursorRef = useRef<QueryDocumentSnapshot | null>(null);
   const stateRef = useRef<AppState>(EMPTY_STATE);
   stateRef.current = state;
 
   useEffect(() => {
     (async () => {
       try {
-        const loaded = await loadFromFirestore();
-        if (loaded) {
+        const result = await loadFromFirestore();
+        if (result.state) {
+          const loaded = result.state;
+          votersCursorRef.current = result.lastVoterDoc;
+          setVotersAllLoaded(result.votersAllLoaded);
           setState(loaded);
           // If users collection was not yet seeded (old data), seed it now
           if (loaded.users.length === 0 || loaded.users === initialUsers) {
@@ -139,6 +160,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             batch.commit().catch(console.error);
           }
         } else {
+          setVotersAllLoaded(true);
           const seed: AppState = {
             voters: initialVoters,
             groups: initialGroups,
@@ -519,6 +541,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+
+  // ── Load more voters from Firestore (cursor pagination) ─────────────────────
+  const loadMoreVoters = async () => {
+    if (votersAllLoaded || votersLoading || !votersCursorRef.current) return;
+    setVotersLoading(true);
+    try {
+      const q = query(
+        collection(db, "voters"),
+        orderBy("__name__"),
+        startAfter(votersCursorRef.current),
+        limit(VOTER_BATCH)
+      );
+      const snap = await getDocs(q);
+      if (snap.docs.length > 0) {
+        const newVoters = snap.docs.map((d) => d.data() as Voter);
+        votersCursorRef.current = snap.docs[snap.docs.length - 1] as QueryDocumentSnapshot;
+        setVotersAllLoaded(snap.docs.length < VOTER_BATCH);
+        setState((s) => ({ ...s, voters: [...s.voters, ...newVoters] }));
+      } else {
+        setVotersAllLoaded(true);
+      }
+    } catch (e) {
+      console.error("loadMoreVoters failed", e);
+    } finally {
+      setVotersLoading(false);
+    }
+  };
+
   return (
     <StoreContext.Provider
       value={{
@@ -548,6 +598,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         updateUser,
         freezeUser,
         refreshUsers,
+        loadMoreVoters,
+        votersLoading,
+        votersAllLoaded,
       }}
     >
       {children}

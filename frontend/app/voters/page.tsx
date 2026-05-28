@@ -7,9 +7,6 @@ import { Voter } from "@/types";
 import { generateId, formatAddress } from "@/lib/utils";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { Plus, Pencil, Trash2, MapPin, Phone, Search, Users, GripVertical, Eye, ArrowUp, ArrowDown, ArrowUpDown, FileUp } from "lucide-react";
-import { usePagination } from "@/hooks/usePagination";
-import PaginationFooter from "@/components/ui/PaginationFooter";
-import ScrollSentinel from "@/components/ui/ScrollSentinel";
 
 // ── Column definitions ────────────────────────────────────────────────────────
 type ColId = "name" | "phone" | "address" | "status" | "voted" | "groups";
@@ -56,7 +53,7 @@ const emptyVoter = (): Voter => ({
 });
 
 export default function VotersPage() {
-  const { state, addVoter, updateVoter, deleteVoter, importVoters } = useStore();
+  const { state, addVoter, updateVoter, deleteVoter, importVoters, loadMoreVoters, votersLoading, votersAllLoaded } = useStore();
   const { voters, groups, statuses } = state;
   const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
 
@@ -83,8 +80,6 @@ export default function VotersPage() {
   // Form
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
-  const [desktopScrollEl, setDesktopScrollEl] = useState<HTMLDivElement | null>(null);
-  const [mobileScrollEl, setMobileScrollEl] = useState<HTMLDivElement | null>(null);
   const [editing, setEditing] = useState<Voter | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Voter | null>(null);
   const [form, setForm] = useState<Voter>(emptyVoter());
@@ -120,23 +115,23 @@ export default function VotersPage() {
     });
   }, [filtered, sortKey, sortDir, statusMap]);
 
-  const { visible, hasMore, loadMore, showing, total } = usePagination(sorted);
+  // All loaded voters are shown (Firestore paginates via loadMoreVoters)
+  const visible = sorted;
+  const showing = sorted.length;
+  const total = sorted.length;
 
-  // Mobile: attach loadMore to app-main scroll (voters page uses fixed-height on desktop,
-  // so on mobile we let #main-scroll drive pagination)
-  const loadMoreRef = useRef(loadMore);
-  useEffect(() => { loadMoreRef.current = loadMore; });
+  // Single scroll listener on #main-scroll for Firestore pagination
   useEffect(() => {
     const mainEl = document.getElementById("main-scroll");
     if (!mainEl) return;
     const onScroll = () => {
-      if (mainEl.scrollHeight - mainEl.scrollTop <= mainEl.clientHeight + 200) {
-        loadMoreRef.current();
+      if (mainEl.scrollHeight - mainEl.scrollTop <= mainEl.clientHeight + 300) {
+        loadMoreVoters();
       }
     };
     mainEl.addEventListener("scroll", onScroll, { passive: true });
     return () => mainEl.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [loadMoreVoters]);
 
   // Form handlers
   const openAdd  = () => { setForm(emptyVoter()); setEditing(null); setShowForm(true); };
@@ -303,8 +298,8 @@ export default function VotersPage() {
       </div>
 
       {/* ── Scrollable table (desktop) ─────────────────────────────────────── */}
-      <div className="card desktop-voter-table" style={{ padding: 0, overflow: "hidden", flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
-        <div ref={setDesktopScrollEl} onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }} style={{ flex: 1, overflowY: "auto", minHeight: 0, WebkitOverflowScrolling: "touch" }}>
+      <div className="card desktop-voter-table" style={{ padding: 0, overflow: "hidden" }}>
+        <div>
           <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
             <thead>
               <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)", position: "sticky", top: 0, zIndex: 2 }}>
@@ -358,7 +353,6 @@ export default function VotersPage() {
             </tbody>
           </table>
 
-          <ScrollSentinel onIntersect={loadMore} root={desktopScrollEl} />
           {filtered.length === 0 && (
             <div className="empty-state">
               <div className="empty-state-icon"><Users size={28} color="var(--text-muted)" /></div>
@@ -368,16 +362,19 @@ export default function VotersPage() {
             </div>
           )}
         </div>
-        <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
+        {/* Loading indicator */}
+        {votersLoading && (
+          <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: 13 }}>טוען עוד בוחרים...</div>
+        )}
+        {!votersLoading && !votersAllLoaded && sorted.length > 0 && (
+          <div style={{ textAlign: "center", padding: "10px", color: "var(--text-muted)", fontSize: 12 }}>גלול למטה לטעינת עוד</div>
+        )}
       </div>
 
       {/* ── Mobile card list (mobile only) ────────────────────────────────── */}
-      <div className="mobile-voter-cards card" style={{ display: "none", flexDirection: "column", padding: 0, overflow: "hidden", flex: 1, minHeight: 0 }}>
+      <div className="mobile-voter-cards card" style={{ display: "none", padding: 0, overflow: "hidden" }}>
         <div
-          ref={setMobileScrollEl}
           className="mobile-voter-scroll"
-          onScroll={(e) => { const el = e.currentTarget; if (el.scrollHeight - el.scrollTop <= el.clientHeight + 120) loadMore(); }}
-          style={{ flex: 1, overflowY: "auto", minHeight: 0, WebkitOverflowScrolling: "touch" }}
         >
           {filtered.length === 0 ? (
             <div style={{ padding: "40px 20px", textAlign: "center", color: "var(--text-muted)" }}>
@@ -433,7 +430,13 @@ export default function VotersPage() {
             })
           )}
         </div>
-        <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
+        {/* Loading indicator */}
+        {votersLoading && (
+          <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: 13 }}>טוען עוד בוחרים...</div>
+        )}
+        {!votersLoading && !votersAllLoaded && sorted.length > 0 && (
+          <div style={{ textAlign: "center", padding: "10px", color: "var(--text-muted)", fontSize: 12 }}>גלול למטה לטעינת עוד</div>
+        )}
       </div>
 
       {/* ── Modal ──────────────────────────────────────────────────────────── */}

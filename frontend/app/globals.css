@@ -640,10 +640,10 @@ td {
   .voter-mobile-card { touch-action: manipulation; }
 
   /* Voters page: let app-main scroll on mobile */
-  .voters-page        { height: auto !important; display: block !important; }
+  .voters-page        { display: flex; flex-direction: column; }
   .voters-filters     { position: sticky; top: 0; z-index: 20; background: var(--bg); padding-bottom: 10px; margin-bottom: 0; }
-  .mobile-voter-cards { flex: none !important; min-height: unset !important; overflow: visible !important; }
-  .mobile-voter-scroll { flex: none !important; overflow-y: visible !important; min-height: unset !important; height: auto !important; }
+  .mobile-voter-cards { overflow: visible !important; }
+  .mobile-voter-scroll { overflow-y: visible !important; }
 }
 
 @media (max-width: 480px) {
