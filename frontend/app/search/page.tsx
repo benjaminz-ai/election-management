@@ -205,6 +205,7 @@ export default function SearchPage() {
                 </tbody>
               </table>
             </div>
+          </div>
           ))}
         </div>
       )}
@@ -274,6 +275,7 @@ export default function SearchPage() {
               })}
             </tbody>
           </table>
+          </div>
           <ScrollSentinel onIntersect={loadMore} />
           <PaginationFooter showing={showing} total={results.length} hasMore={hasMore} entityLabel="בוחרים" />
         </div>
