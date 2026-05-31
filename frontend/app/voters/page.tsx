@@ -142,6 +142,13 @@ export default function VotersPage() {
   const openEdit = (v: Voter) => { setForm({ ...v, address: { ...v.address } }); setEditing(v); setShowForm(true); };
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!editing) {
+      const dup = voters.find(v => v.uniqueId === form.uniqueId.trim());
+      if (dup) {
+        alert(`מזהה ${form.uniqueId} כבר קיים במערכת (${dup.firstName} ${dup.lastName})`);
+        return;
+      }
+    }
     editing ? updateVoter(form) : addVoter({ ...form, id: generateId() });
     setShowForm(false);
   };
@@ -191,7 +198,7 @@ export default function VotersPage() {
           </div>
           <div>
             <div style={{ fontWeight: 600, fontSize: 13.5, color: "var(--text-primary)" }}>{v.firstName} {v.lastName}</div>
-            <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>ת.ז. {v.uniqueId}</div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>מזהה: {v.uniqueId}</div>
           </div>
         </div>
       );
@@ -282,7 +289,7 @@ export default function VotersPage() {
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <div className="search-wrap" style={{ flex: 1, minWidth: 200 }}>
             <Search size={15} className="search-icon" />
-            <input className="input" placeholder="חיפוש לפי שם, עיר, רחוב, ת.ז., טלפון..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="input" placeholder="חיפוש לפי שם, עיר, רחוב, מזהה, טלפון..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {(["", "yes", "no"] as const).map((opt) => (
@@ -452,7 +459,7 @@ export default function VotersPage() {
                 <div><label className="label">שם משפחה *</label><input className="input" required value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} /></div>
               </div>
               <div className="grid-2" style={{ marginBottom: 14 }}>
-                <div><label className="label">מספר זהות *</label><input className="input" required value={form.uniqueId} onChange={e => setForm({ ...form, uniqueId: e.target.value })} /></div>
+                <div><label className="label">מזהה *</label><input className="input" required value={form.uniqueId} onChange={e => setForm({ ...form, uniqueId: e.target.value })} /></div>
                 <div><label className="label">טלפון נייד</label><input className="input" type="tel" placeholder="050-0000000" value={form.phone ?? ""} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ direction: "ltr", textAlign: "right" }} /></div>
               </div>
               <div style={{ background: "var(--bg)", borderRadius: 10, padding: 14, marginBottom: 14 }}>

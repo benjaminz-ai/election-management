@@ -242,8 +242,8 @@ export default function GroupLeadersPage() {
                 </div>
               </div>
               <div style={{ marginBottom: 14 }}>
-                <label className="label">מספר זהות <span style={{ color: "#ef4444" }}>*</span></label>
-                <input className="input" required value={form.uniqueId} onChange={(e) => setForm({ ...form, uniqueId: e.target.value })} placeholder="9 ספרות" />
+                <label className="label">מזהה <span style={{ color: "#ef4444" }}>*</span></label>
+                <input className="input" required value={form.uniqueId} onChange={(e) => setForm({ ...form, uniqueId: e.target.value })} placeholder="מזהה ייחודי" />
               </div>
               <div className="form-2col" style={{ marginBottom: 14 }}>
                 <div>

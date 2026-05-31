@@ -10,11 +10,11 @@ import { generateId } from "@/lib/utils";
 
 // ── Field definitions ──────────────────────────────────────────────────────────
 const HEADERS = [
-  "שם פרטי", "שם משפחה", "מספר זהות", "טלפון",
+  "שם פרטי", "שם משפחה", "מזהה", "טלפון",
   "רחוב", "מספר בית", "בניין", "דירה", "עיר",
 ];
 
-const REQUIRED = new Set(["שם פרטי", "שם משפחה", "מספר זהות"]);
+const REQUIRED = new Set(["שם פרטי", "שם משפחה", "מזהה"]);
 
 type ParsedRow = {
   rowNum: number;
@@ -129,7 +129,7 @@ function CollapsibleList({
           }}>
             <span style={{ color: "var(--text-muted)", minWidth: 36 }}>ש.{r.rowNum}</span>
             <span style={{ fontWeight: 600, color: "var(--navy)" }}>{r.firstName} {r.lastName}</span>
-            <span>ת.ז. {r.uniqueId}</span>
+            <span>מזהה: {r.uniqueId}</span>
             {r.city && <span style={{ color: "var(--text-muted)" }}>{r.city}</span>}
           </div>
         ))}
@@ -222,13 +222,13 @@ export default function ImportVotersModal({
           const rowNum = i + 1;
           const firstName  = get(row, "שם פרטי");
           const lastName   = get(row, "שם משפחה");
-          const uniqueId   = get(row, "מספר זהות");
+          const uniqueId   = get(row, "מזהה");
 
           if (!firstName)  { invalidRows.push({ rowNum, reason: "חסר שם פרטי" });   continue; }
           if (!lastName)   { invalidRows.push({ rowNum, reason: "חסר שם משפחה" });  continue; }
-          if (!uniqueId)   { invalidRows.push({ rowNum, reason: "חסר מספר זהות" }); continue; }
+          if (!uniqueId)   { invalidRows.push({ rowNum, reason: "חסר מזהה" }); continue; }
           if (!/^\d{5,13}$/.test(uniqueId.replace(/-/g, ""))) {
-            invalidRows.push({ rowNum, reason: `מספר זהות לא תקין: ${uniqueId}` });
+            invalidRows.push({ rowNum, reason: `מזהה לא תקין: ${uniqueId}` });
             continue;
           }
 
