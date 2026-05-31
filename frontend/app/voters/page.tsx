@@ -83,6 +83,7 @@ export default function VotersPage() {
   // Form
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [dupError, setDupError] = useState<string | null>(null);
   const desktopTableRef = useRef<HTMLDivElement>(null);
   const mobileListRef = useRef<HTMLDivElement>(null);
   const [editing, setEditing] = useState<Voter | null>(null);
@@ -138,17 +139,18 @@ export default function VotersPage() {
   }, []);
 
   // Form handlers
-  const openAdd  = () => { setForm(emptyVoter()); setEditing(null); setShowForm(true); };
-  const openEdit = (v: Voter) => { setForm({ ...v, address: { ...v.address } }); setEditing(v); setShowForm(true); };
+  const openAdd  = () => { setForm(emptyVoter()); setEditing(null); setDupError(null); setShowForm(true); };
+  const openEdit = (v: Voter) => { setForm({ ...v, address: { ...v.address } }); setEditing(v); setDupError(null); setShowForm(true); };
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editing) {
       const dup = voters.find(v => v.uniqueId === form.uniqueId.trim());
       if (dup) {
-        alert(`מזהה ${form.uniqueId} כבר קיים במערכת (${dup.firstName} ${dup.lastName})`);
+        setDupError(`${dup.firstName} ${dup.lastName}`);
         return;
       }
     }
+    setDupError(null);
     editing ? updateVoter(form) : addVoter({ ...form, id: generateId() });
     setShowForm(false);
   };
@@ -459,7 +461,22 @@ export default function VotersPage() {
                 <div><label className="label">שם משפחה *</label><input className="input" required value={form.lastName} onChange={e => setForm({ ...form, lastName: e.target.value })} /></div>
               </div>
               <div className="grid-2" style={{ marginBottom: 14 }}>
-                <div><label className="label">מזהה *</label><input className="input" required value={form.uniqueId} onChange={e => setForm({ ...form, uniqueId: e.target.value })} /></div>
+                <div>
+                  <label className="label">מזהה *</label>
+                  <input
+                    className="input"
+                    required
+                    value={form.uniqueId}
+                    onChange={e => { setForm({ ...form, uniqueId: e.target.value }); setDupError(null); }}
+                    style={{ borderColor: dupError ? "#ef4444" : undefined }}
+                  />
+                  {dupError && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, padding: "7px 10px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8 }}>
+                      <span style={{ fontSize: 14 }}>⚠️</span>
+                      <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>מזהה כבר קיים — {dupError}</span>
+                    </div>
+                  )}
+                </div>
                 <div><label className="label">טלפון נייד</label><input className="input" type="tel" placeholder="050-0000000" value={form.phone ?? ""} onChange={e => setForm({ ...form, phone: e.target.value })} style={{ direction: "ltr", textAlign: "right" }} /></div>
               </div>
               <div style={{ background: "var(--bg)", borderRadius: 10, padding: 14, marginBottom: 14 }}>
