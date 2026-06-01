@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Firebase service account keys — NEVER commit (grants full DB control)
+*firebase-adminsdk*.json
+serviceAccount*.json
+*-service-account*.json

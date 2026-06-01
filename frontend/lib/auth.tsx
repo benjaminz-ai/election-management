@@ -1,6 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useRef, useCallback, useMemo, useEffect, ReactNode } from "react";
+import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { auth as fbAuth } from "./firebase";
 import { useStore } from "./store";
 import { AppUser } from "@/types";
 
@@ -124,33 +126,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(interval);
   }, [currentUserId]);
 
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
-    // Always fetch fresh users from Firestore before checking credentials.
-    // This ensures a password reset is immediately reflected — the old password
-    // cannot work after a reset even if the in-memory store is stale.
-    await refreshUsersRef.current();
-
-    // Only real users from Firestore are accepted — no demo fallback.
-    const users = usersRef.current;
-
-    const normalizedEmail = email.trim().toLowerCase();
-    const user = users.find((u) => u.email.toLowerCase() === normalizedEmail && u.password === password);
-
-    if (!user) return "invalid";
-    if (user.isFrozen) return "frozen";
-
-    setCurrentUserId(user.id);
+  const startSession = (id: string) => {
+    setCurrentUserId(id);
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, user.id);
+      localStorage.setItem(STORAGE_KEY, id);
       localStorage.setItem(SESSION_KEY, Date.now().toString());
       markActivity();
     }
-    return "ok";
+  };
+
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    // Refresh users so freeze/profile changes are reflected immediately.
+    await refreshUsersRef.current();
+    const users = usersRef.current;
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // ── Primary path: Firebase Authentication ────────────────────────────────
+    try {
+      const cred = await signInWithEmailAndPassword(fbAuth, normalizedEmail, password);
+      const uid = cred.user.uid;
+      // Profile is keyed by the Firebase uid; fall back to email match if needed.
+      const profile = users.find((u) => u.id === uid)
+        ?? users.find((u) => u.email.toLowerCase() === normalizedEmail);
+      if (profile?.isFrozen) { await signOut(fbAuth); return "frozen"; }
+      startSession(profile?.id ?? uid);
+      return "ok";
+    } catch {
+      // ── Fallback: legacy Firestore check (transition safety net) ────────────
+      // Ensures nobody is locked out if Firebase Auth fails for any reason.
+      const user = users.find((u) => u.email.toLowerCase() === normalizedEmail && u.password === password);
+      if (!user) return "invalid";
+      if (user.isFrozen) return "frozen";
+      startSession(user.id);
+      return "ok";
+    }
   }, []); // stable — reads via refs
 
   const logout = useCallback(() => {
     setCurrentUserId(null);
     clearSession();
+    signOut(fbAuth).catch(() => {});
   }, []);
 
   return (
