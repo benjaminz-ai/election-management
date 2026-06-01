@@ -200,11 +200,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const updateVoter = (voter: Voter) => {
+    const old = stateRef.current.voters.find((v) => v.id === voter.id);
+    const oldSubGroupIds = old?.subGroupIds ?? [];
+    const newSubGroupIds = voter.subGroupIds ?? [];
+    // Determine added/removed subgroups
+    const addedSubs = newSubGroupIds.filter(id => !oldSubGroupIds.includes(id));
+    const removedSubs = oldSubGroupIds.filter(id => !newSubGroupIds.includes(id));
     setState((s) => ({
       ...s,
       voters: s.voters.map((v) => (v.id === voter.id ? voter : v)),
+      subGroups: s.subGroups.map((sg) => {
+        if (addedSubs.includes(sg.id)) return { ...sg, voterIds: [...sg.voterIds.filter(id => id !== voter.id), voter.id] };
+        if (removedSubs.includes(sg.id)) return { ...sg, voterIds: sg.voterIds.filter(id => id !== voter.id) };
+        return sg;
+      }),
     }));
     setDoc(doc(db, "voters", voter.id), voter).catch(console.error);
+    addedSubs.forEach(sgid => updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayUnion(voter.id) }).catch(console.error));
+    removedSubs.forEach(sgid => updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayRemove(voter.id) }).catch(console.error));
   };
 
   const deleteVoter = (id: string) => {
