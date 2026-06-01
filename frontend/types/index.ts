@@ -14,6 +14,8 @@ export type Voter = {
   groupIds: string[];
   subGroupIds?: string[];
   statusId?: string;
+  lastCallStatusId?: string;
+  hasVoted?: boolean;
 };
 
 export type SubGroup = {
@@ -52,11 +54,14 @@ export type DivisionHead = {
   groupLeaderIds: string[];
 };
 
+export type StatusCategory = "supporter" | "opponent" | "undecided" | "neutral";
+
 export type Status = {
   id: string;
   name: string;
   color: string;
   isDefault: boolean;
+  category?: StatusCategory;
 };
 
 export type CallStatus = {
