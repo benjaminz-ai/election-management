@@ -218,13 +218,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })),
     }));
     deleteDoc(doc(db, "voters", id)).catch(console.error);
-    if (voter)
+    if (voter) {
       voter.groupIds.forEach((gid) =>
-      updateDoc(doc(db, "groups", gid), { voterIds: arrayUnion(voter.id) }).catch(console.error)
-    );
-    (voter.subGroupIds ?? []).forEach((sgid) =>
-      updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayUnion(voter.id) }).catch(console.error)
-    );
+        updateDoc(doc(db, "groups", gid), { voterIds: arrayRemove(id) }).catch(console.error)
+      );
+      (voter.subGroupIds ?? []).forEach((sgid) =>
+        updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayRemove(id) }).catch(console.error)
+      );
+    }
   };
 
   // ── Groups ────────────────────────────────────────────────────────────────────
