@@ -13,6 +13,7 @@ import {
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
+import DateTimePicker from "@/components/ui/DateTimePicker";
 
 const generateId = () => `cl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -512,10 +513,9 @@ export default function TelemarketingPage() {
                     <textarea value={reminderText} onChange={(e) => setReminderText(e.target.value)} rows={2}
                       placeholder="למשל: ביקש שנחזור אליו בנושא הארנונה"
                       style={{ width: "100%", padding: "9px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>תאריך ושעה (אופציונלי):</label>
-                      <input type="datetime-local" value={reminderDue} onChange={(e) => setReminderDue(e.target.value)}
-                        style={{ padding: "7px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none" }} />
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 8 }}>מועד התזכורת (אופציונלי):</label>
+                      <DateTimePicker value={reminderDue} onChange={setReminderDue} />
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button type="button" onClick={saveReminder} disabled={!reminderText.trim()}

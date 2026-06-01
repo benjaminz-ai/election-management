@@ -55,7 +55,7 @@ export default function RemindersPage() {
 
   return (
     <div>
-      <PageHeader title="התזכורות שלי" subtitle="תזכורות אישיות שיצרת — רק אתה רואה אותן" />
+      <PageHeader title="התזכורות שלי" />
 
       {/* Tabs */}
       <div style={{ display: "flex", gap: 0, marginBottom: 18, borderBottom: "1.5px solid var(--border)" }}>
