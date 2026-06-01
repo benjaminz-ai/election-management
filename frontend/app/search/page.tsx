@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useStore } from "@/lib/store"; // advanced search + bulk actions
+import { useAuth } from "@/lib/auth";
 import { formatAddress } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -55,7 +56,12 @@ function loadColVisible(): Record<ColId, boolean> {
 
 export default function SearchPage() {
   const { state, bulkUpdateVoters } = useStore();
+  const { currentUser } = useAuth();
   const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses } = state;
+
+  // Bulk-action safety cap: limited roles can change at most BULK_LIMIT records per action
+  const bulkLimit = currentUser && (currentUser.role === "telemarketing" || currentUser.role === "field") ? 10 : Infinity;
+  const capped = bulkLimit !== Infinity;
   const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
 
   // ── Filters ────────────────────────────────────────────────
@@ -231,18 +237,25 @@ export default function SearchPage() {
     setSelected(new Set());
   };
 
-  // Selection helpers
+  // Selection helpers (respect the bulk cap for limited roles)
   const toggleOne = (id: string) =>
-    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    setSelected((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) { n.delete(id); return n; }
+      if (n.size >= bulkLimit) return prev; // cap reached — ignore
+      n.add(id);
+      return n;
+    });
   const allVisibleSelected = visibleResults.length > 0 && visibleResults.every((v) => selected.has(v.id));
   const toggleAllVisible = () =>
     setSelected((prev) => {
       const n = new Set(prev);
-      if (allVisibleSelected) visibleResults.forEach((v) => n.delete(v.id));
-      else visibleResults.forEach((v) => n.add(v.id));
+      if (allVisibleSelected) { visibleResults.forEach((v) => n.delete(v.id)); return n; }
+      for (const v of visibleResults) { if (n.size >= bulkLimit) break; n.add(v.id); }
       return n;
     });
-  const selectAllResults = () => setSelected(new Set(results.map((r) => r.id)));
+  const selectAllResults = () =>
+    setSelected(new Set(results.slice(0, capped ? bulkLimit : results.length).map((r) => r.id)));
 
   // Column drag & drop
   const handleDragStart = (col: ColId) => { dragColRef.current = col; };
@@ -422,10 +435,19 @@ export default function SearchPage() {
               <button onClick={toggleAllVisible} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
                 {allVisibleSelected ? <CheckSquare size={13} /> : <Square size={13} />} בחר את המוצגים
               </button>
-              {results.length > visibleResults.length && (
+              {capped ? (
+                <button onClick={selectAllResults} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--blue-primary)" }}>
+                  בחר {bulkLimit} ראשונות
+                </button>
+              ) : results.length > visibleResults.length && (
                 <button onClick={selectAllResults} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--blue-primary)" }}>
                   בחר את כל {results.length} התוצאות
                 </button>
+              )}
+              {capped && (
+                <span style={{ fontSize: 11, color: "var(--text-muted)", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  (מוגבל ל-{bulkLimit} רשומות לפעולה)
+                </span>
               )}
 
               {/* Column menu */}
