@@ -20,3 +20,5 @@ env:
     availability:
       - BUILD
       - RUNTIME
+  - variable: SERVICE_ACCOUNT_KEY
+    secret: FIREBASE_SERVICE_ACCOUNT
