@@ -241,6 +241,21 @@ export default function TelemarketingPage() {
                 </select>
               </div>
               <div>
+                <label style={{ display: "block", fontSize: 11, color: "#888", marginBottom: 3, fontWeight: 600 }}>תת-קבוצה</label>
+                <select value={filterSubGroupId} onChange={(e) => setFilterSubGroupId(e.target.value)}
+                  style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e2e8f0", borderRadius: 7, fontSize: 12, color: "#374151", background: "#fff", outline: "none" }}>
+                  <option value="">הכל</option>
+                  {(filterGroupId ? subGroups.filter(sg => sg.parentGroupId === filterGroupId) : subGroups).map(sg => {
+                    const parentName = groups.find(g => g.id === sg.parentGroupId)?.name;
+                    return <option key={sg.id} value={sg.id}>{sg.name}{!filterGroupId ? ` (${parentName})` : ""}</option>;
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 2b: group leader */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 7, marginBottom: 7 }}>
+              <div>
                 <label style={{ display: "block", fontSize: 11, color: "#888", marginBottom: 3, fontWeight: 600 }}>ראש קבוצה</label>
                 <select value={filterGroupLeaderId} onChange={(e) => setFilterGroupLeaderId(e.target.value)}
                   style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e2e8f0", borderRadius: 7, fontSize: 12, color: "#374151", background: "#fff", outline: "none" }}>
