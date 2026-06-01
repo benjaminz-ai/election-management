@@ -71,14 +71,27 @@ export default function SearchPage() {
   const [filterVoted, setFilterVoted] = useState<VotedFilter>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Read filters passed from the reports screen (category / voted) on mount
+  // Exact-address filter (arrives from the reports "families" drill-down)
+  const [addrStreet, setAddrStreet] = useState("");
+  const [addrNumber, setAddrNumber] = useState("");
+  const [addrApartment, setAddrApartment] = useState("");
+
+  // Read filters passed from the reports screen on mount
   useEffect(() => {
     try {
       const p = new URLSearchParams(window.location.search);
       const cat = p.get("category");
       const voted = p.get("voted");
+      const street = p.get("street");
+      const number = p.get("streetNumber");
+      const apartment = p.get("apartment");
+      const cityParam = p.get("city");
       if (cat) { setCategoryFilter(cat); setFiltersOpen(true); }
       if (voted === "yes" || voted === "no") { setFilterVoted(voted); setFiltersOpen(true); }
+      if (street) setAddrStreet(street);
+      if (number) setAddrNumber(number);
+      if (apartment) setAddrApartment(apartment);
+      if (cityParam) setCity(cityParam);
     } catch {}
   }, []);
 
@@ -126,7 +139,7 @@ export default function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || filterVoted;
+    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || filterVoted || addrStreet || addrNumber || addrApartment;
     if (!hasAnyFilter) return [];
     return voters.filter((v) => {
       if (q) {
@@ -145,12 +158,15 @@ export default function SearchPage() {
         return lid && divisionByLeaderId[lid] === divisionId;
       })) return false;
       if (city && v.address.city !== city) return false;
+      if (addrStreet && v.address.street !== addrStreet) return false;
+      if (addrNumber && v.address.streetNumber !== addrNumber) return false;
+      if (addrApartment && v.address.apartment !== addrApartment) return false;
       if (categoryFilter && (statusMap.get(v.statusId ?? "")?.category ?? "neutral") !== categoryFilter) return false;
       if (filterVoted === "yes" && !v.hasVoted) return false;
       if (filterVoted === "no" && v.hasVoted) return false;
       return true;
     });
-  }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, filterVoted, leaderByGroupId, divisionByLeaderId, statusMap]);
+  }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, filterVoted, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
 
   const results = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -197,13 +213,17 @@ export default function SearchPage() {
     return () => mainEl.removeEventListener("scroll", onScroll);
   }, []);
 
+  const addrActive = Boolean(addrStreet || addrNumber || addrApartment);
   const activeFilterCount =
     (statusId ? 1 : 0) + (groupId ? 1 : 0) + (leaderId ? 1 : 0) +
-    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (filterVoted ? 1 : 0);
+    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
+
+  const clearAddress = () => { setAddrStreet(""); setAddrNumber(""); setAddrApartment(""); };
 
   const resetFilters = () => {
     setQuery(""); setStatusId(""); setGroupId(""); setLeaderId("");
     setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setFilterVoted("");
+    clearAddress();
     setSelected(new Set());
   };
 
@@ -384,6 +404,15 @@ export default function SearchPage() {
           <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
             נמצאו <strong style={{ color: "var(--navy)" }}>{results.length}</strong> בוחרים
           </span>
+          {addrActive && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 20, background: "rgba(117,57,145,0.1)", color: "var(--purple-secondary)" }}>
+              <MapPin size={12} />
+              {[addrStreet, addrNumber].filter(Boolean).join(" ")}{addrApartment ? `, דירה ${addrApartment}` : ""}{city ? `, ${city}` : ""}
+              <button onClick={clearAddress} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--purple-secondary)", display: "flex", padding: 0 }} aria-label="הסר סינון כתובת">
+                <X size={13} />
+              </button>
+            </span>
+          )}
           {results.length > 0 && (
             <>
               <button onClick={toggleAllVisible} style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>

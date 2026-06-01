@@ -647,12 +647,17 @@ export default function ReportsPage() {
             ? <p style={{ color: "#94a3b8" }}>לא נמצאו שתי נפשות באותה כתובת</p>
             : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {familyReport.map((f, i) => (
+                {familyReport.map((f, i) => {
+                  const addr = f.voters[0]?.address;
+                  const openBuilding = () => addr && goToSearch({ street: addr.street, streetNumber: addr.streetNumber, city: addr.city });
+                  return (
                   <div key={i} style={{ padding: "12px 16px", border: `1px solid ${f.mixed ? "#f59e0b" : "#e2e8f0"}`, borderRadius: 10, background: f.mixed ? "#fffbeb" : "transparent" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                      <div style={{ fontWeight: 600, fontSize: 14 }}>
+                    <div onClick={openBuilding} title="צפה ברשימת הדיירים"
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 4, cursor: "pointer" }}>
+                      <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
                         {f.label}
                         {f.mixed && <span style={{ fontSize: 12, color: "#d97706", marginRight: 8 }}>⚠ מפוצלת</span>}
+                        <span style={{ fontSize: 12, color: "var(--blue-primary)", fontWeight: 600 }}>צפה ←</span>
                       </div>
                       <span style={{ fontSize: 13, color: "#64748b" }}>
                         {f.stats.total} נפשות · <span style={{ color: "#22c55e" }}>{f.stats.supporters}✓</span> <span style={{ color: "#ef4444" }}>{f.stats.opponents}✗</span>
@@ -661,13 +666,17 @@ export default function ReportsPage() {
                     </div>
                     <StatusBar breakdown={f.stats.breakdown} total={f.stats.total} />
                     {f.aptEntries.map(({ apt, breakdown, total }) => (
-                      <div key={apt} style={{ marginTop: 8, paddingRight: 14, borderRight: "3px solid #e2e8f0" }}>
+                      <div key={apt} onClick={() => addr && goToSearch({ street: addr.street, streetNumber: addr.streetNumber, city: addr.city, apartment: apt })}
+                        title="צפה בדיירי הדירה"
+                        style={{ marginTop: 8, paddingRight: 14, borderRight: "3px solid #e2e8f0", cursor: "pointer" }}>
                         <span style={{ fontSize: 12, color: "#64748b" }}>דירה {apt} ({total} נפשות)</span>
+                        <span style={{ fontSize: 11, color: "var(--blue-primary)", fontWeight: 600, marginRight: 6 }}>צפה ←</span>
                         <StatusBar breakdown={breakdown} total={total} />
                       </div>
                     ))}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
         </ReportCard>
