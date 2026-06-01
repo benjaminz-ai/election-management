@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useStore } from "@/lib/store"; // advanced search + bulk actions
 import { formatAddress } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { Search, MapPin, UserCheck, X, Vote, Filter, CheckSquare, Square, RotateCcw, Tag, Users2, ChevronDown, ChevronUp, Settings2 } from "lucide-react";
+import { Search, MapPin, UserCheck, X, Vote, Filter, CheckSquare, Square, RotateCcw, Tag, Users2, ChevronDown, ChevronUp, Settings2, Eye, GripVertical, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
@@ -19,9 +19,44 @@ const TEXT_MODES: { key: TextMode; label: string; placeholder: string }[] = [
   { key: "streetAndNumber", label: "רחוב + מספר", placeholder: "לדוגמה: הרצל 12" },
 ];
 
+// ── Column definitions ──────────────────────────────────────
+type ColId = "name" | "address" | "status" | "voted" | "leader" | "groups";
+type SortKey = "lastName" | "city" | "status" | "voted" | "leader";
+type SortDir = "asc" | "desc";
+
+const COL_LABELS: Record<ColId, string> = {
+  name: "שם", address: "כתובת", status: "סטטוס",
+  voted: "הצביע", leader: "ראש קבוצה", groups: "קבוצות",
+};
+const COL_SORT: Partial<Record<ColId, SortKey>> = {
+  name: "lastName", address: "city", status: "status", voted: "voted", leader: "leader",
+};
+const DRAGGABLE_COLS: ColId[] = ["name", "address", "status", "voted", "leader", "groups"];
+
+function loadColOrder(): ColId[] {
+  try {
+    const s = localStorage.getItem("search_col_order");
+    if (s) {
+      const parsed: ColId[] = JSON.parse(s);
+      const valid = DRAGGABLE_COLS.filter(c => parsed.includes(c));
+      const missing = DRAGGABLE_COLS.filter(c => !parsed.includes(c));
+      return [...valid, ...missing];
+    }
+  } catch {}
+  return [...DRAGGABLE_COLS];
+}
+function loadColVisible(): Record<ColId, boolean> {
+  try {
+    const s = localStorage.getItem("search_col_visible");
+    if (s) return { ...Object.fromEntries(DRAGGABLE_COLS.map(c => [c, true])), ...JSON.parse(s) } as Record<ColId, boolean>;
+  } catch {}
+  return Object.fromEntries(DRAGGABLE_COLS.map(c => [c, true])) as Record<ColId, boolean>;
+}
+
 export default function SearchPage() {
   const { state, bulkUpdateVoters } = useStore();
   const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses } = state;
+  const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
 
   // ── Filters ────────────────────────────────────────────────
   const [textMode, setTextMode] = useState<TextMode>("lastName");
@@ -35,6 +70,21 @@ export default function SearchPage() {
   const [filterVoted, setFilterVoted] = useState<VotedFilter>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
+  // ── Sorting ────────────────────────────────────────────────
+  const [sortKey, setSortKey] = useState<SortKey>("lastName");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  // ── Columns (drag / show-hide) ─────────────────────────────
+  const [colOrder, setColOrder] = useState<ColId[]>(loadColOrder);
+  const [colVisible, setColVisible] = useState<Record<ColId, boolean>>(loadColVisible);
+  const [showColMenu, setShowColMenu] = useState(false);
+  const dragColRef = useRef<ColId | null>(null);
+  const dragOverColRef = useRef<ColId | null>(null);
+
   // ── Selection (bulk) ───────────────────────────────────────
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -43,24 +93,29 @@ export default function SearchPage() {
     () => Array.from(new Set(voters.map((v) => v.address.city).filter(Boolean))).sort(),
     [voters]
   );
-
   const leaderByGroupId = useMemo(() => {
     const m: Record<string, string> = {};
     groups.forEach((g) => { if (g.groupLeaderId) m[g.id] = g.groupLeaderId; });
     return m;
   }, [groups]);
-
   const divisionByLeaderId = useMemo(() => {
     const m: Record<string, string> = {};
     groupLeaders.forEach((gl) => { m[gl.id] = gl.divisionHeadId; });
     return m;
   }, [groupLeaders]);
 
-  const results = useMemo(() => {
+  const getVoterLeader = useCallback((voter: typeof voters[0]) => {
+    for (const gl of groupLeaders) {
+      if (voter.groupIds.some((gid) => gl.groupIds.includes(gid))) return gl;
+    }
+    return null;
+  }, [groupLeaders]);
+  const getVoterGroups = (voter: typeof voters[0]) => groups.filter((g) => voter.groupIds.includes(g.id));
+
+  const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || filterVoted;
     if (!hasAnyFilter) return [];
-
     return voters.filter((v) => {
       if (q) {
         let textMatch = false;
@@ -84,6 +139,24 @@ export default function SearchPage() {
     });
   }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, filterVoted, leaderByGroupId, divisionByLeaderId]);
 
+  const results = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      let va = "", vb = "";
+      if (sortKey === "lastName") { va = a.lastName; vb = b.lastName; }
+      else if (sortKey === "city") { va = a.address.city; vb = b.address.city; }
+      else if (sortKey === "status") { va = statusMap.get(a.statusId ?? "")?.name ?? ""; vb = statusMap.get(b.statusId ?? "")?.name ?? ""; }
+      else if (sortKey === "voted") { va = a.hasVoted ? "1" : "0"; vb = b.hasVoted ? "1" : "0"; }
+      else if (sortKey === "leader") {
+        const la = getVoterLeader(a); const lb = getVoterLeader(b);
+        va = la ? `${la.lastName} ${la.firstName}` : "";
+        vb = lb ? `${lb.lastName} ${lb.firstName}` : "";
+      }
+      const cmp = va.localeCompare(vb, "he");
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [filtered, sortKey, sortDir, statusMap, getVoterLeader]);
+
+  // Clear selections that left the result set
   useEffect(() => {
     setSelected((prev) => {
       if (prev.size === 0) return prev;
@@ -94,17 +167,9 @@ export default function SearchPage() {
     });
   }, [results]);
 
-  const getVoterLeader = (voter: typeof voters[0]) => {
-    for (const gl of groupLeaders) {
-      if (voter.groupIds.some((gid) => gl.groupIds.includes(gid))) return gl;
-    }
-    return null;
-  };
-  const getVoterGroups = (voter: typeof voters[0]) => groups.filter((g) => voter.groupIds.includes(g.id));
-
   const { visible: visibleResults, hasMore, loadMore, showing } = usePagination(results, 20);
 
-  // Stable ref so the scroll listener always calls the latest loadMore
+  // Infinite-scroll on the app's main scroll container (same as other screens)
   const loadMoreRef = useRef(loadMore);
   useEffect(() => { loadMoreRef.current = loadMore; });
   useEffect(() => {
@@ -129,6 +194,7 @@ export default function SearchPage() {
     setSelected(new Set());
   };
 
+  // Selection helpers
   const toggleOne = (id: string) =>
     setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const allVisibleSelected = visibleResults.length > 0 && visibleResults.every((v) => selected.has(v.id));
@@ -141,7 +207,84 @@ export default function SearchPage() {
     });
   const selectAllResults = () => setSelected(new Set(results.map((r) => r.id)));
 
+  // Column drag & drop
+  const handleDragStart = (col: ColId) => { dragColRef.current = col; };
+  const handleDragOver = useCallback((e: React.DragEvent, col: ColId) => {
+    e.preventDefault();
+    if (!dragColRef.current || dragColRef.current === col) return;
+    if (dragOverColRef.current === col) return;
+    dragOverColRef.current = col;
+    setColOrder((prev) => {
+      const newOrder = [...prev];
+      const from = newOrder.indexOf(dragColRef.current!);
+      const to = newOrder.indexOf(col);
+      if (from === -1 || to === -1) return prev;
+      newOrder.splice(from, 1);
+      newOrder.splice(to, 0, dragColRef.current!);
+      return newOrder;
+    });
+  }, []);
+  const handleDrop = () => {
+    localStorage.setItem("search_col_order", JSON.stringify(colOrder));
+    dragColRef.current = null;
+    dragOverColRef.current = null;
+  };
+  const toggleColVisible = (col: ColId) => {
+    const next = { ...colVisible, [col]: !colVisible[col] };
+    setColVisible(next);
+    localStorage.setItem("search_col_visible", JSON.stringify(next));
+  };
+  const visibleCols = colOrder.filter(c => colVisible[c]);
+
   const hasFilters = Boolean(query.trim() || activeFilterCount > 0);
+
+  // Render a single result cell
+  const renderCell = (v: typeof voters[0], col: ColId) => {
+    const st = statusMap.get(v.statusId ?? "");
+    const leader = getVoterLeader(v);
+    const voterGroups = getVoterGroups(v);
+    switch (col) {
+      case "name": return (
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg, var(--blue-primary), var(--purple-secondary))", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11 }}>
+            {v.firstName[0]}{v.lastName[0]}
+          </div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, color: "var(--navy)" }}>{v.firstName} {v.lastName}</div>
+            <div style={{ fontSize: 11, color: "var(--gray-text)", fontFamily: "monospace" }}>{v.uniqueId}</div>
+          </div>
+        </div>
+      );
+      case "address": return (
+        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--text-secondary)" }}>
+          <MapPin size={11} color="var(--gray-text)" />{formatAddress(v.address)}
+        </span>
+      );
+      case "status": return st
+        ? <span style={{ display: "inline-block", fontSize: 12, padding: "3px 9px", borderRadius: 20, fontWeight: 600, background: st.color + "22", color: st.color, border: `1px solid ${st.color}55` }}>{st.name}</span>
+        : <span className="badge badge-gray">ללא סטטוס</span>;
+      case "voted": return v.hasVoted
+        ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#dcfce7", color: "#16a34a", borderRadius: 20, padding: "3px 9px", fontSize: 12, fontWeight: 700 }}>✓ הצביע</span>
+        : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>;
+      case "leader": return leader
+        ? <span style={{ fontSize: 13, color: "var(--purple-secondary)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><UserCheck size={12} />{leader.firstName} {leader.lastName}</span>
+        : <span className="badge badge-gray">לא משויך</span>;
+      case "groups": return voterGroups.length === 0
+        ? <span className="badge badge-gray">ללא קבוצה</span>
+        : <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {voterGroups.map((g) => <span key={g.id} className="badge badge-blue" style={{ fontSize: 11 }}>{g.name}</span>)}
+          </div>;
+    }
+  };
+
+  const SortIcon = ({ col }: { col: ColId }) => {
+    const sk = COL_SORT[col];
+    if (!sk) return null;
+    const active = sortKey === sk;
+    return active
+      ? (sortDir === "asc" ? <ArrowUp size={11} color="var(--blue-primary)" /> : <ArrowDown size={11} color="var(--blue-primary)" />)
+      : <ArrowUpDown size={11} style={{ opacity: 0.35 }} />;
+  };
 
   return (
     <div>
@@ -149,7 +292,6 @@ export default function SearchPage() {
 
       {/* ── Filter panel ─────────────────────────────────── */}
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-        {/* Text search row */}
         <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
           {TEXT_MODES.map((m) => (
             <button key={m.key} onClick={() => setTextMode(m.key)}
@@ -170,7 +312,6 @@ export default function SearchPage() {
           )}
         </div>
 
-        {/* Advanced filters toggle */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
           <button onClick={() => setFiltersOpen((o) => !o)}
             style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", cursor: "pointer", color: filtersOpen || activeFilterCount > 0 ? "var(--blue-primary)" : "var(--text-secondary)", fontSize: 13, fontWeight: 700, padding: 0 }}>
@@ -187,7 +328,6 @@ export default function SearchPage() {
           )}
         </div>
 
-        {/* Collapsible advanced filters */}
         {filtersOpen && (
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
@@ -234,10 +374,29 @@ export default function SearchPage() {
                   בחר את כל {results.length} התוצאות
                 </button>
               )}
+
+              {/* Column menu */}
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setShowColMenu(s => !s)}
+                  style={{ display: "flex", alignItems: "center", gap: 5, background: "none", border: "1px solid var(--border)", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                  <Eye size={13} /> עמודות
+                </button>
+                {showColMenu && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#fff", border: "1.5px solid var(--border)", borderRadius: 10, padding: 12, zIndex: 100, boxShadow: "0 4px 20px rgba(0,0,0,0.12)", minWidth: 160 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gray-text)", marginBottom: 8, textTransform: "uppercase" }}>הצג/הסתר עמודות</div>
+                    {DRAGGABLE_COLS.map(col => (
+                      <label key={col} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", cursor: "pointer", fontSize: 13 }}>
+                        <input type="checkbox" checked={colVisible[col]} onChange={() => toggleColVisible(col)} style={{ width: 14, height: 14, cursor: "pointer" }} />
+                        {COL_LABELS[col]}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </>
           )}
 
-          {/* Bulk actions button — appears when there's a selection */}
+          {/* Bulk actions */}
           {selected.size > 0 && (
             <div style={{ marginRight: "auto", display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: "var(--blue-primary)" }}>{selected.size} נבחרו</span>
@@ -254,7 +413,7 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Empty / no-results states */}
+      {/* Empty / no-results */}
       {!hasFilters && (
         <div className="empty-state" style={{ marginTop: 40 }}>
           <div className="empty-state-icon"><Search size={28} color="var(--blue-primary)" /></div>
@@ -269,6 +428,14 @@ export default function SearchPage() {
         </div>
       )}
 
+      {/* Drag hint */}
+      {results.length > 0 && (
+        <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+          <GripVertical size={12} />
+          <span>גרור כותרת עמודה לשינוי סדר · לחץ על כותרת למיון</span>
+        </div>
+      )}
+
       {/* ── Results table ────────────────────────────────── */}
       {results.length > 0 && (
         <div className="card" style={{ overflow: "hidden", padding: 0 }}>
@@ -276,22 +443,31 @@ export default function SearchPage() {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr style={{ background: "var(--bg)", borderBottom: "1.5px solid var(--border)" }}>
-                  <th style={{ ...thStyle, width: 40, cursor: "pointer" }} onClick={toggleAllVisible}>
+                  <th style={{ ...thBase, width: 40, cursor: "pointer" }} onClick={toggleAllVisible}>
                     {allVisibleSelected ? <CheckSquare size={15} color="var(--blue-primary)" /> : <Square size={15} color="var(--gray-text)" />}
                   </th>
-                  <th style={thStyle}>שם</th>
-                  <th style={thStyle} className="hide-mobile">כתובת</th>
-                  <th style={thStyle}>סטטוס</th>
-                  <th style={thStyle}>הצביע</th>
-                  <th style={thStyle} className="hide-mobile">ראש קבוצה</th>
-                  <th style={thStyle} className="hide-mobile">קבוצות</th>
+                  {visibleCols.map(col => {
+                    const sk = COL_SORT[col];
+                    const active = sk && sortKey === sk;
+                    return (
+                      <th key={col} draggable
+                        onDragStart={() => handleDragStart(col)}
+                        onDragOver={(e) => handleDragOver(e, col)}
+                        onDrop={handleDrop}
+                        onClick={() => sk && handleSort(sk)}
+                        style={{ ...thBase, color: active ? "var(--blue-primary)" : "var(--gray-text)", cursor: sk ? "pointer" : "grab", userSelect: "none", background: active ? "rgba(32,157,215,0.06)" : "var(--bg)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                          <GripVertical size={11} style={{ opacity: 0.4 }} />
+                          {COL_LABELS[col]}
+                          <SortIcon col={col} />
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
               </thead>
               <tbody>
                 {visibleResults.map((v) => {
-                  const leader = getVoterLeader(v);
-                  const voterGroups = getVoterGroups(v);
-                  const st = statuses.find((s) => s.id === v.statusId);
                   const isSel = selected.has(v.id);
                   return (
                     <tr key={v.id} onClick={() => toggleOne(v.id)}
@@ -299,43 +475,9 @@ export default function SearchPage() {
                       <td style={tdStyle} onClick={(e) => { e.stopPropagation(); toggleOne(v.id); }}>
                         {isSel ? <CheckSquare size={16} color="var(--blue-primary)" /> : <Square size={16} color="var(--gray-text)" />}
                       </td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                          <div style={{ width: 32, height: 32, borderRadius: "50%", flexShrink: 0, background: "linear-gradient(135deg, var(--blue-primary), var(--purple-secondary))", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: 11 }}>
-                            {v.firstName[0]}{v.lastName[0]}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: "var(--navy)" }}>{v.firstName} {v.lastName}</div>
-                            <div style={{ fontSize: 11, color: "var(--gray-text)", fontFamily: "monospace" }}>{v.uniqueId}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={tdStyle} className="hide-mobile">
-                        <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, color: "var(--text-secondary)" }}>
-                          <MapPin size={11} color="var(--gray-text)" />{formatAddress(v.address)}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>
-                        {st
-                          ? <span style={{ display: "inline-block", fontSize: 12, padding: "3px 9px", borderRadius: 20, fontWeight: 600, background: st.color + "22", color: st.color, border: `1px solid ${st.color}55` }}>{st.name}</span>
-                          : <span className="badge badge-gray">ללא סטטוס</span>}
-                      </td>
-                      <td style={tdStyle}>
-                        {v.hasVoted
-                          ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#dcfce7", color: "#16a34a", borderRadius: 20, padding: "3px 9px", fontSize: 12, fontWeight: 700 }}>✓ הצביע</span>
-                          : <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>}
-                      </td>
-                      <td style={tdStyle} className="hide-mobile">
-                        {leader
-                          ? <span style={{ fontSize: 13, color: "var(--purple-secondary)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}><UserCheck size={12} />{leader.firstName} {leader.lastName}</span>
-                          : <span className="badge badge-gray">לא משויך</span>}
-                      </td>
-                      <td style={tdStyle} className="hide-mobile">
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {voterGroups.map((g) => <span key={g.id} className="badge badge-blue" style={{ fontSize: 11 }}>{g.name}</span>)}
-                          {voterGroups.length === 0 && <span className="badge badge-gray">ללא קבוצה</span>}
-                        </div>
-                      </td>
+                      {visibleCols.map(col => (
+                        <td key={col} style={tdStyle}>{renderCell(v, col)}</td>
+                      ))}
                     </tr>
                   );
                 })}
@@ -362,6 +504,9 @@ export default function SearchPage() {
           }}
         />
       )}
+
+      {/* Close col menu on outside click */}
+      {showColMenu && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowColMenu(false)} />}
     </div>
   );
 }
@@ -528,5 +673,5 @@ function ActionsModal({ count, statuses, groupLeaders, groups, onClose, onApply 
 }
 
 const selStyle: React.CSSProperties = { padding: "9px 10px", borderRadius: 8, border: "1.5px solid var(--blue-primary)", fontSize: 14, fontWeight: 600, color: "var(--navy)", background: "#fff", cursor: "pointer" };
-const thStyle: React.CSSProperties = { padding: "11px 16px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--gray-text)", textTransform: "uppercase", letterSpacing: "0.05em" };
+const thBase: React.CSSProperties = { padding: "11px 16px", textAlign: "right", fontSize: 11, fontWeight: 700, color: "var(--gray-text)", textTransform: "uppercase", letterSpacing: "0.05em" };
 const tdStyle: React.CSSProperties = { padding: "12px 16px", verticalAlign: "middle" };
