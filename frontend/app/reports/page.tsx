@@ -377,12 +377,13 @@ export default function ReportsPage() {
     return { dh, stats, leaderBreakdown, groupCount };
   });
 
-  const familyMap: Record<string, { label: string; voters: Voter[]; apartments: Record<string, Voter[]> }> = {};
+  const familyMap: Record<string, { label: string; surname: string; voters: Voter[]; apartments: Record<string, Voter[]> }> = {};
   voters.forEach(v => {
     const addr = v.address;
-    if (!addr?.city || !addr?.street || !addr?.streetNumber) return;
-    const key = `${addr.city}__${addr.street}__${addr.streetNumber}`.toLowerCase();
-    if (!familyMap[key]) familyMap[key] = { label: `${addr.street} ${addr.streetNumber}, ${addr.city}`, voters: [], apartments: {} };
+    // Family = same last name + same street + number + city. Skip if we can't deduce.
+    if (!v.lastName?.trim() || !addr?.city || !addr?.street || !addr?.streetNumber) return;
+    const key = `${v.lastName}__${addr.city}__${addr.street}__${addr.streetNumber}`.toLowerCase().trim();
+    if (!familyMap[key]) familyMap[key] = { label: `משפחת ${v.lastName} · ${addr.street} ${addr.streetNumber}, ${addr.city}`, surname: v.lastName, voters: [], apartments: {} };
     familyMap[key].voters.push(v);
     if (addr.apartment) { if (!familyMap[key].apartments[addr.apartment]) familyMap[key].apartments[addr.apartment] = []; familyMap[key].apartments[addr.apartment].push(v); }
   });
@@ -649,7 +650,7 @@ export default function ReportsPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {familyReport.map((f, i) => {
                   const addr = f.voters[0]?.address;
-                  const openBuilding = () => addr && goToSearch({ street: addr.street, streetNumber: addr.streetNumber, city: addr.city });
+                  const openBuilding = () => addr && goToSearch({ lastName: f.surname, street: addr.street, streetNumber: addr.streetNumber, city: addr.city });
                   return (
                   <div key={i} style={{ padding: "12px 16px", border: `1px solid ${f.mixed ? "#f59e0b" : "#e2e8f0"}`, borderRadius: 10, background: f.mixed ? "#fffbeb" : "transparent" }}>
                     <div onClick={openBuilding} title="צפה ברשימת הדיירים"
@@ -666,7 +667,7 @@ export default function ReportsPage() {
                     </div>
                     <StatusBar breakdown={f.stats.breakdown} total={f.stats.total} />
                     {f.aptEntries.map(({ apt, breakdown, total }) => (
-                      <div key={apt} onClick={() => addr && goToSearch({ street: addr.street, streetNumber: addr.streetNumber, city: addr.city, apartment: apt })}
+                      <div key={apt} onClick={() => addr && goToSearch({ lastName: f.surname, street: addr.street, streetNumber: addr.streetNumber, city: addr.city, apartment: apt })}
                         title="צפה בדיירי הדירה"
                         style={{ marginTop: 8, paddingRight: 14, borderRight: "3px solid #e2e8f0", cursor: "pointer" }}>
                         <span style={{ fontSize: 12, color: "#64748b" }}>דירה {apt} ({total} נפשות)</span>

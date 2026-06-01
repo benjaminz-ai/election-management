@@ -72,6 +72,7 @@ export default function SearchPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Exact-address filter (arrives from the reports "families" drill-down)
+  const [addrLastName, setAddrLastName] = useState("");
   const [addrStreet, setAddrStreet] = useState("");
   const [addrNumber, setAddrNumber] = useState("");
   const [addrApartment, setAddrApartment] = useState("");
@@ -86,8 +87,10 @@ export default function SearchPage() {
       const number = p.get("streetNumber");
       const apartment = p.get("apartment");
       const cityParam = p.get("city");
+      const lastName = p.get("lastName");
       if (cat) { setCategoryFilter(cat); setFiltersOpen(true); }
       if (voted === "yes" || voted === "no") { setFilterVoted(voted); setFiltersOpen(true); }
+      if (lastName) setAddrLastName(lastName);
       if (street) setAddrStreet(street);
       if (number) setAddrNumber(number);
       if (apartment) setAddrApartment(apartment);
@@ -139,7 +142,7 @@ export default function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || filterVoted || addrStreet || addrNumber || addrApartment;
+    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || filterVoted || addrLastName || addrStreet || addrNumber || addrApartment;
     if (!hasAnyFilter) return [];
     return voters.filter((v) => {
       if (q) {
@@ -158,6 +161,7 @@ export default function SearchPage() {
         return lid && divisionByLeaderId[lid] === divisionId;
       })) return false;
       if (city && v.address.city !== city) return false;
+      if (addrLastName && v.lastName !== addrLastName) return false;
       if (addrStreet && v.address.street !== addrStreet) return false;
       if (addrNumber && v.address.streetNumber !== addrNumber) return false;
       if (addrApartment && v.address.apartment !== addrApartment) return false;
@@ -166,7 +170,7 @@ export default function SearchPage() {
       if (filterVoted === "no" && v.hasVoted) return false;
       return true;
     });
-  }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, filterVoted, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
+  }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
 
   const results = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -213,12 +217,12 @@ export default function SearchPage() {
     return () => mainEl.removeEventListener("scroll", onScroll);
   }, []);
 
-  const addrActive = Boolean(addrStreet || addrNumber || addrApartment);
+  const addrActive = Boolean(addrLastName || addrStreet || addrNumber || addrApartment);
   const activeFilterCount =
     (statusId ? 1 : 0) + (groupId ? 1 : 0) + (leaderId ? 1 : 0) +
     (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
 
-  const clearAddress = () => { setAddrStreet(""); setAddrNumber(""); setAddrApartment(""); };
+  const clearAddress = () => { setAddrLastName(""); setAddrStreet(""); setAddrNumber(""); setAddrApartment(""); };
 
   const resetFilters = () => {
     setQuery(""); setStatusId(""); setGroupId(""); setLeaderId("");
@@ -407,7 +411,7 @@ export default function SearchPage() {
           {addrActive && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 20, background: "rgba(117,57,145,0.1)", color: "var(--purple-secondary)" }}>
               <MapPin size={12} />
-              {[addrStreet, addrNumber].filter(Boolean).join(" ")}{addrApartment ? `, דירה ${addrApartment}` : ""}{city ? `, ${city}` : ""}
+              {addrLastName ? `משפחת ${addrLastName} · ` : ""}{[addrStreet, addrNumber].filter(Boolean).join(" ")}{addrApartment ? `, דירה ${addrApartment}` : ""}{city ? `, ${city}` : ""}
               <button onClick={clearAddress} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--purple-secondary)", display: "flex", padding: 0 }} aria-label="הסר סינון כתובת">
                 <X size={13} />
               </button>
