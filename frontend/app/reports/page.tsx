@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, PieChart, Target, Megaphone, TrendingUp, AlertTriangle } from "lucide-react";
 import { Voter, Status } from "@/types";
 
 type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | "voting" | null;
@@ -74,6 +74,62 @@ function SummaryCard({ label, value, color, icon, onClick }: { label: string; va
         <div style={{ fontSize: 22, fontWeight: 700, color: "var(--dark-navy)" }}>{value.toLocaleString()}</div>
         <div style={{ fontSize: 13, color: "#64748b" }}>{label}</div>
       </div>
+    </div>
+  );
+}
+
+function DonutChart({ segments }: { segments: { label: string; value: number; color: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.value, 0);
+  const r = 66, sw = 24, C = 2 * Math.PI * r;
+  let acc = 0;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 22, flexWrap: "wrap" }}>
+      <svg width={172} height={172} viewBox="0 0 172 172" role="img" aria-label="פילוח לפי קטגוריה">
+        <g transform="rotate(-90 86 86)">
+          {total === 0
+            ? <circle cx={86} cy={86} r={r} fill="none" stroke="#f1f5f9" strokeWidth={sw} />
+            : segments.filter(s => s.value > 0).map((s) => {
+                const len = (s.value / total) * C;
+                const el = <circle key={s.label} cx={86} cy={86} r={r} fill="none" stroke={s.color} strokeWidth={sw}
+                  strokeDasharray={`${len} ${C - len}`} strokeDashoffset={-acc} />;
+                acc += len;
+                return el;
+              })}
+        </g>
+        <text x={86} y={82} textAnchor="middle" fontSize={28} fontWeight={800} fill="#032147">{total.toLocaleString()}</text>
+        <text x={86} y={102} textAnchor="middle" fontSize={12} fill="#64748b">סך הכל</text>
+      </svg>
+      <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+        {segments.map(s => {
+          const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
+          return (
+            <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+              <span style={{ width: 12, height: 12, borderRadius: 3, background: s.color, flexShrink: 0 }} />
+              <span style={{ color: "#475569", minWidth: 78 }}>{s.label}</span>
+              <span style={{ fontWeight: 700, color: "#1e293b" }}>{s.value}</span>
+              <span style={{ color: "#94a3b8" }}>({pct}%)</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function InsightTile({ icon, color, value, label, hint, onClick }: {
+  icon: React.ReactNode; color: string; value: React.ReactNode; label: string; hint: string; onClick?: () => void;
+}) {
+  return (
+    <div onClick={onClick}
+      style={{ border: "1px solid #e2e8f0", borderRadius: 12, padding: "14px 16px", cursor: onClick ? "pointer" : "default", transition: "box-shadow 0.15s, transform 0.15s" }}
+      onMouseEnter={(e) => { if (onClick) { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.10)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ""; e.currentTarget.style.transform = ""; }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+        <span style={{ background: color + "22", color, borderRadius: 8, padding: 7, display: "flex", flexShrink: 0 }}>{icon}</span>
+        <span style={{ fontSize: 22, fontWeight: 800, color: "var(--dark-navy)" }}>{value}</span>
+      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{label}</div>
+      <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{hint}</div>
     </div>
   );
 }
@@ -286,6 +342,12 @@ export default function ReportsPage() {
   const totalVoted = voters.filter(v => v.hasVoted).length;
   const votingPct = voters.length > 0 ? Math.round((totalVoted / voters.length) * 100) : 0;
 
+  // ── Election-success insights ────────────────────────────────
+  const catOf = (v: Voter) => statusMap.get(v.statusId ?? "")?.category ?? "neutral";
+  const supportersNotVoted = voters.filter(v => catOf(v) === "supporter" && !v.hasVoted).length;
+  const supportersVoted = allStats.supporters - supportersNotVoted;
+  const supporterTurnoutPct = allStats.supporters > 0 ? Math.round((supportersVoted / allStats.supporters) * 100) : 0;
+
   const votedVoters = useMemo(() => voters.filter(v => v.hasVoted), [voters]);
   const notVotedVoters = useMemo(() => voters.filter(v => !v.hasVoted), [voters]);
 
@@ -374,6 +436,43 @@ export default function ReportsPage() {
             <div style={{ fontSize: 12, color: "#64748b", marginBottom: 4 }}>הצביעו ({votingPct}%)</div>
             <div style={{ height: 6, borderRadius: 3, background: "#f1f5f9", overflow: "hidden" }}>
               <div style={{ width: `${votingPct}%`, height: "100%", background: "#22c55e" }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Pie chart + success insights ─────────────────────────────────── */}
+      <div className="card" style={{ padding: 20, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
+          <PieChart size={18} color="#209dd7" />
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: "var(--dark-navy)", margin: 0 }}>תמונת מצב ונושאים להצלחה בבחירות</h2>
+        </div>
+        <div className="insights-grid" style={{ display: "grid", gridTemplateColumns: "minmax(260px, 340px) 1fr", gap: 28, alignItems: "start" }}>
+          {/* Donut */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginBottom: 14 }}>פילוח לפי קטגוריה</div>
+            <DonutChart segments={[
+              { label: "תומכים", value: allStats.supporters, color: "#22c55e" },
+              { label: "מתנגדים", value: allStats.opponents, color: "#ef4444" },
+              { label: "מתלבטים", value: allStats.undecided, color: "#f59e0b" },
+              { label: "לא רלוונטי", value: allStats.neutral, color: "#94a3b8" },
+            ]} />
+          </div>
+          {/* Actionable insights */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#475569", marginBottom: 14 }}>נושאים לפעולה — לחץ למעבר לרשימה</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(185px, 1fr))", gap: 12 }}>
+              <InsightTile icon={<Megaphone size={16} />} color="#16a34a" value={supportersNotVoted}
+                label="תומכים שטרם הצביעו" hint="המוקד לגיוס ביום הבחירות"
+                onClick={() => goToSearch({ category: "supporter", voted: "no" })} />
+              <InsightTile icon={<Target size={16} />} color="#f59e0b" value={allStats.undecided}
+                label="מתלבטים" hint="פוטנציאל המרה — לשכנע"
+                onClick={() => goToSearch({ category: "undecided" })} />
+              <InsightTile icon={<TrendingUp size={16} />} color="#3b82f6" value={`${supporterTurnoutPct}%`}
+                label="שיעור גיוס תומכים" hint={`${supportersVoted} מתוך ${allStats.supporters} הצביעו`} />
+              <InsightTile icon={<AlertTriangle size={16} />} color="#d97706" value={familyReport.filter(f => f.mixed).length}
+                label="בתים מפוצלים" hint="מחלוקת בתוך המשפחה"
+                onClick={() => handleToggle("families")} />
             </div>
           </div>
         </div>
@@ -598,6 +697,7 @@ export default function ReportsPage() {
         @media (max-width: 1280px) { .resp-grid-6 { grid-template-columns: repeat(3,1fr); } }
         @media (max-width: 768px) { .resp-grid-6 { grid-template-columns: repeat(2,1fr); } }
         @media (max-width: 480px) { .resp-grid-6 { grid-template-columns: 1fr; } }
+        @media (max-width: 860px) { .insights-grid { grid-template-columns: 1fr !important; } }
       `}</style>
     </div>
   );
