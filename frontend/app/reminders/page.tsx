@@ -95,7 +95,7 @@ export default function RemindersPage() {
                     <div style={{ fontWeight: 700, fontSize: 15, color: "var(--navy)" }}>
                       {v ? `${v.firstName} ${v.lastName}` : "בוחר לא נמצא"}
                     </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", margintop: 3, fontSize: 12, color: "var(--gray-text)" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 3, fontSize: 12, color: "var(--gray-text)" }}>
                       {v?.phone && <span style={{ display: "flex", alignItems: "center", gap: 4, direction: "ltr" }}><Phone size={11} />{v.phone}</span>}
                       {v && <span style={{ display: "flex", alignItems: "center", gap: 4 }}><MapPin size={11} />{[v.address.street, v.address.streetNumber, v.address.city].filter(Boolean).join(", ")}</span>}
                     </div>
