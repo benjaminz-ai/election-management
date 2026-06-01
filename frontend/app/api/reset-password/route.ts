@@ -9,6 +9,7 @@ import {
   updateDoc,
   doc,
 } from "firebase/firestore";
+import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 
 const firebaseConfig = {
   apiKey: "AIzaSyB6f5AkDkvsDqI99aIyj_sopKAbBlybT78",
@@ -27,44 +28,45 @@ export async function POST(req: NextRequest) {
     if (!token || !newPassword) {
       return NextResponse.json({ error: "נדרש טוקן וסיסמה חדשה" }, { status: 400 });
     }
-
     if (newPassword.length < 6) {
       return NextResponse.json({ error: "הסיסמה חייבת להכיל לפחות 6 תווים" }, { status: 400 });
     }
 
     const db = getDb();
 
-    // Find the reset token
+    // Find + validate the reset token
     const resetsRef = collection(db, "passwordResets");
-    const q = query(resetsRef, where("token", "==", token));
-    const snap = await getDocs(q);
-
+    const snap = await getDocs(query(resetsRef, where("token", "==", token)));
     if (snap.empty) {
       return NextResponse.json({ error: "הקישור אינו תקף" }, { status: 400 });
     }
-
     const resetDoc = snap.docs[0];
     const resetData = resetDoc.data();
 
-    // Check if already used
     if (resetData.used) {
       return NextResponse.json({ error: "הקישור כבר שומש. אנא בקש קישור חדש." }, { status: 400 });
     }
-
-    // Check expiry
-    const expiresAt = new Date(resetData.expiresAt as string);
-    if (new Date() > expiresAt) {
+    if (new Date() > new Date(resetData.expiresAt as string)) {
       return NextResponse.json({ error: "הקישור פג תוקף. אנא בקש קישור חדש." }, { status: 400 });
     }
 
-    // The userId stored in passwordResets is the Firestore document ID of the user
-    const userId = resetData.userId as string;
+    const email = String(resetData.email ?? "").trim().toLowerCase();
+    if (!email) {
+      return NextResponse.json({ error: "הקישור חסר כתובת אימייל" }, { status: 400 });
+    }
 
-    // Update password directly using the document ID (no secondary query needed)
-    const userDocRef = doc(db, "users", userId);
-    await updateDoc(userDocRef, { password: newPassword });
+    // ── Primary: update the password in Firebase Authentication ──────────────
+    const userRecord = await adminAuth().getUserByEmail(email);
+    await adminAuth().updateUser(userRecord.uid, { password: newPassword });
 
-    // Mark token as used
+    // ── Transition safety: keep the legacy Firestore password in sync too, so
+    //    the fallback login path stays consistent until we remove it.
+    const usersSnap = await adminDb().collection("users").where("email", "==", email).get();
+    await Promise.all(
+      usersSnap.docs.map((d) => d.ref.update({ password: newPassword }).catch(() => {}))
+    );
+
+    // Mark token used
     await updateDoc(doc(db, "passwordResets", resetDoc.id), { used: true });
 
     return NextResponse.json({ success: true });
