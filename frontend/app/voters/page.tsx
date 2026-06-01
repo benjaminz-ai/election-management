@@ -516,10 +516,11 @@ export default function VotersPage() {
                     const sel = form.groupIds.includes(g.id);
                     const groupSubGroups = subGroups.filter(sg => sg.parentGroupId === g.id);
                     return (
-                      <button key={g.id} type="button" onClick={() => toggleGroup(g.id)}
-                        style={{ padding: "5px 12px", borderRadius: 20, border: sel ? "1.5px solid var(--blue-primary)" : "1.5px solid var(--border)", background: sel ? "rgba(32,157,215,.1)" : "#fff", color: sel ? "var(--blue-primary)" : "var(--text-muted)", fontWeight: sel ? 700 : 400, fontSize: 12, cursor: "pointer" }}>
-                        {g.name}
-                      </button>
+                      <div key={g.id}>
+                        <button type="button" onClick={() => toggleGroup(g.id)}
+                          style={{ padding: "5px 12px", borderRadius: 20, border: sel ? "1.5px solid var(--blue-primary)" : "1.5px solid var(--border)", background: sel ? "rgba(32,157,215,.1)" : "#fff", color: sel ? "var(--blue-primary)" : "var(--text-muted)", fontWeight: sel ? 700 : 400, fontSize: 12, cursor: "pointer" }}>
+                          {g.name}
+                        </button>
                         {sel && groupSubGroups.length > 0 && (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, paddingRight: 16 }}>
                             {groupSubGroups.map(sg => {
@@ -533,6 +534,7 @@ export default function VotersPage() {
                             })}
                           </div>
                         )}
+                      </div>
                     );
                   })}
                   {groups.length === 0 && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>אין קבוצות</span>}
