@@ -6,8 +6,9 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
   PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
-  X, ChevronRight, ChevronLeft,
+  X, ChevronRight, ChevronLeft, Bell,
 } from "lucide-react";
+import { useStore } from "@/lib/store";
 
 interface SidebarProps {
   isOpen?: boolean;    // mobile: controls slide-in
@@ -27,6 +28,7 @@ const commonLinks = [
   { href: "/group-leaders", label: "ראשי קבוצה",     icon: UserCheck },
   { href: "/division-heads",label: "ראשי אגף",       icon: Shield },
   { href: "/reports",       label: "דוחות",           icon: BarChart3 },
+  { href: "/reminders",     label: "התזכורות שלי",    icon: Bell },
   { href: "/search",        label: "חיפוש",           icon: Search },
   { href: "/statuses",      label: "סטטוסי תמיכה",   icon: Tag },
   { href: "/call-statuses", label: "סטטוסי שיחה",    icon: MessageSquareMore },
@@ -37,6 +39,8 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
   const { currentUser, logout } = useAuth();
+  const { state } = useStore();
+  const reminderCount = state.reminders.filter((r) => r.userId === currentUser?.id && !r.done).length;
 
   // Desktop collapse state — persisted in localStorage
   const [collapsed, setCollapsed] = useState(() => {
@@ -120,6 +124,11 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
               >
                 <Icon size={18} />
                 {!isCollapsed && <span>{label}</span>}
+                {href === "/reminders" && reminderCount > 0 && (
+                  <span style={{ marginRight: isCollapsed ? 0 : "auto", position: isCollapsed ? "absolute" : "static", top: isCollapsed ? 6 : undefined, left: isCollapsed ? 6 : undefined, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "#ef4444", color: "#fff", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {reminderCount}
+                  </span>
+                )}
               </button>
             );
           })}

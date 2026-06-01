@@ -8,7 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
-import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, AppUser } from "@/types";
+import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, AppUser, Reminder } from "@/types";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -56,6 +56,10 @@ type StoreContextType = {
   updateUser: (user: AppUser) => void;
   freezeUser: (id: string, frozen: boolean) => void;
   refreshUsers: () => Promise<void>;
+  addReminder: (r: Reminder) => void;
+  updateReminder: (r: Reminder) => void;
+  deleteReminder: (id: string) => void;
+  refreshReminders: () => Promise<void>;
 };
 
 const StoreContext = createContext<StoreContextType | null>(null);
@@ -69,10 +73,11 @@ const EMPTY_STATE: AppState = {
   statuses: [],
   callStatuses: [],
   users: [],
+  reminders: [],
 };
 
 async function loadFromFirestore(): Promise<AppState> {
-  const [votersSnap, groupsSnap, subGroupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap] =
+  const [votersSnap, groupsSnap, subGroupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap, remindersSnap] =
     await Promise.all([
       getDocs(collection(db, "voters")),
       getDocs(collection(db, "groups")),
@@ -82,6 +87,7 @@ async function loadFromFirestore(): Promise<AppState> {
       getDocs(collection(db, "statuses")),
       getDocs(collection(db, "callStatuses")),
       getDocs(collection(db, "users")),
+      getDocs(collection(db, "reminders")),
     ]);
 
   const voters = votersSnap.docs.map((d: { data(): unknown }) => d.data() as Voter);
@@ -92,6 +98,7 @@ async function loadFromFirestore(): Promise<AppState> {
   const statuses = statusesSnap.docs.map((d: { data(): unknown }) => d.data() as Status);
   const callStatuses = callStatusesSnap.docs.map((d: { data(): unknown }) => d.data() as CallStatus);
   const users = usersSnap.docs.map((d: { data(): unknown }) => d.data() as AppUser);
+  const reminders = remindersSnap.docs.map((d: { data(): unknown }) => d.data() as Reminder);
 
   return {
     voters,
@@ -102,6 +109,7 @@ async function loadFromFirestore(): Promise<AppState> {
     statuses,
     callStatuses,
     users,
+    reminders,
   };
 }
 
@@ -593,6 +601,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
 
+  // ── Reminders (personal) ──────────────────────────────────────────────────────
+
+  const addReminder = (r: Reminder) => {
+    setState((s) => ({ ...s, reminders: [...s.reminders, r] }));
+    setDoc(doc(db, "reminders", r.id), r).catch(console.error);
+  };
+
+  const updateReminder = (r: Reminder) => {
+    setState((s) => ({ ...s, reminders: s.reminders.map((x) => (x.id === r.id ? r : x)) }));
+    setDoc(doc(db, "reminders", r.id), r).catch(console.error);
+  };
+
+  const deleteReminder = (id: string) => {
+    setState((s) => ({ ...s, reminders: s.reminders.filter((x) => x.id !== id) }));
+    deleteDoc(doc(db, "reminders", id)).catch(console.error);
+  };
+
+  const refreshReminders = async (): Promise<void> => {
+    try {
+      const snap = await getDocs(collection(db, "reminders"));
+      setState((s) => ({ ...s, reminders: snap.docs.map((d) => d.data() as Reminder) }));
+    } catch (e) {
+      console.error("refreshReminders failed", e);
+    }
+  };
+
   // ── Refresh Users ─────────────────────────────────────────────────────────────
 
   const refreshUsers = async (): Promise<void> => {
@@ -642,6 +676,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         updateUser,
         freezeUser,
         refreshUsers,
+        addReminder,
+        updateReminder,
+        deleteReminder,
+        refreshReminders,
       }}
     >
       {children}

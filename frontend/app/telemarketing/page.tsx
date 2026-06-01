@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, setDoc, doc } from "firebase/firestore";
 import {
   Phone, ChevronRight, ChevronLeft, PhoneCall, MapPin, User, Users,
-  Clock, CheckCircle2, Loader2, Search, X, Vote,
+  Clock, CheckCircle2, Loader2, Search, X, Bell,
 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
@@ -38,7 +38,7 @@ function stringToColor(str: string) {
 }
 
 export default function TelemarketingPage() {
-  const { state, updateVoter } = useStore();
+  const { state, updateVoter, addReminder } = useStore();
   const { currentUser } = useAuth();
   const { voters, groups, subGroups, groupLeaders, statuses, callStatuses } = state;
 
@@ -65,6 +65,28 @@ export default function TelemarketingPage() {
   const [formHasVoted, setFormHasVoted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+
+  // Personal reminder
+  const [showReminder, setShowReminder] = useState(false);
+  const [reminderText, setReminderText] = useState("");
+  const [reminderDue, setReminderDue] = useState("");
+  const [reminderSaved, setReminderSaved] = useState(false);
+
+  const saveReminder = () => {
+    if (!selectedVoter || !reminderText.trim()) return;
+    addReminder({
+      id: `rm_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      voterId: selectedVoter.id,
+      userId: currentUser?.id ?? "",
+      text: reminderText.trim(),
+      dueAt: reminderDue ? new Date(reminderDue).toISOString() : undefined,
+      done: false,
+      createdAt: new Date().toISOString(),
+    });
+    setReminderText(""); setReminderDue(""); setShowReminder(false);
+    setReminderSaved(true);
+    setTimeout(() => setReminderSaved(false), 2500);
+  };
 
   const defaultStatusId = useMemo(
     () => statuses.find((s) => s.isDefault)?.id ?? statuses[0]?.id ?? "",
@@ -465,6 +487,48 @@ export default function TelemarketingPage() {
                     ) : null; })()}
                   </div>
                 </div>
+              </div>
+
+              {/* Personal reminder */}
+              <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #f1f5f9", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", padding: "16px 22px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <h3 style={{ margin: 0, color: "#032147", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(32,157,215,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Bell size={13} color="#209dd7" />
+                    </div>
+                    תזכורת אישית
+                  </h3>
+                  {reminderSaved
+                    ? <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#16a34a", fontSize: 13, fontWeight: 600 }}><CheckCircle2 size={14} /> התזכורת נשמרה</span>
+                    : !showReminder && (
+                      <button type="button" onClick={() => setShowReminder(true)}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid var(--blue-primary, #209dd7)", background: "#fff", color: "#209dd7", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        <Bell size={13} /> הוסף תזכורת
+                      </button>
+                    )}
+                </div>
+                {showReminder && (
+                  <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <textarea value={reminderText} onChange={(e) => setReminderText(e.target.value)} rows={2}
+                      placeholder="למשל: ביקש שנחזור אליו בנושא הארנונה"
+                      style={{ width: "100%", padding: "9px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <label style={{ fontSize: 12, color: "#64748b", fontWeight: 600 }}>תאריך ושעה (אופציונלי):</label>
+                      <input type="datetime-local" value={reminderDue} onChange={(e) => setReminderDue(e.target.value)}
+                        style={{ padding: "7px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" onClick={saveReminder} disabled={!reminderText.trim()}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, border: "none", background: reminderText.trim() ? "#209dd7" : "#e5e7eb", color: reminderText.trim() ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: 13, cursor: reminderText.trim() ? "pointer" : "not-allowed" }}>
+                        <Bell size={13} /> שמור תזכורת
+                      </button>
+                      <button type="button" onClick={() => { setShowReminder(false); setReminderText(""); setReminderDue(""); }}
+                        style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid var(--border, #e2e8f0)", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                        ביטול
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Call form */}

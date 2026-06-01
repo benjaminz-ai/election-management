@@ -1,14 +1,28 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
-import { Users, UsersRound, UserCheck, Shield, TrendingUp, AlertCircle, CheckCircle2, BarChart3, Vote } from "lucide-react";
+import { Users, UsersRound, UserCheck, Shield, TrendingUp, AlertCircle, CheckCircle2, BarChart3, Vote, Bell, CalendarClock, ChevronLeft } from "lucide-react";
 
 export default function DashboardPage() {
   const { state } = useStore();
+  const { currentUser } = useAuth();
   const { voters, groups, groupLeaders, divisionHeads, statuses } = state;
   const router = useRouter();
+
+  const voterMap = useMemo(() => new Map(voters.map(v => [v.id, v])), [voters]);
+  const myOpenReminders = useMemo(
+    () => state.reminders.filter(r => r.userId === currentUser?.id && !r.done),
+    [state.reminders, currentUser]
+  );
+  const dueReminders = useMemo(() => {
+    const end = new Date(); end.setHours(23, 59, 59, 999);
+    return myOpenReminders
+      .filter(r => r.dueAt && new Date(r.dueAt).getTime() <= end.getTime())
+      .sort((a, b) => (a.dueAt ?? "").localeCompare(b.dueAt ?? ""));
+  }, [myOpenReminders]);
 
   const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
   const supporters = voters.filter(v => statusMap.get(v.statusId ?? "")?.category === "supporter").length;
@@ -84,6 +98,44 @@ export default function DashboardPage() {
           <button className="btn-secondary" style={{ flexShrink: 0 }} onClick={() => router.push("/reports?open=voting")}>
             דוח הצבעה מלא
           </button>
+        </div>
+      )}
+
+      {/* My reminders for today */}
+      {myOpenReminders.length > 0 && (
+        <div className="card" style={{ padding: 20, marginBottom: 24, borderRight: "4px solid var(--blue-primary, #209dd7)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: dueReminders.length > 0 ? 14 : 0 }}>
+            <Bell size={16} color="#209dd7" />
+            <span style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>התזכורות שלי להיום</span>
+            <span className="badge" style={{ marginRight: "auto", background: dueReminders.length > 0 ? "#fee2e2" : "#f1f5f9", color: dueReminders.length > 0 ? "#dc2626" : "#64748b", borderRadius: 20, padding: "2px 10px", fontSize: 12, fontWeight: 700 }}>
+              {dueReminders.length > 0 ? `${dueReminders.length} להיום` : `${myOpenReminders.length} פתוחות`}
+            </span>
+            <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => router.push("/reminders")}>הכל</button>
+          </div>
+          {dueReminders.length === 0 ? (
+            <p style={{ margin: "10px 0 0", fontSize: 13, color: "#16a34a", fontWeight: 600 }}>✓ אין תזכורות שמועדן היום</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {dueReminders.slice(0, 5).map(r => {
+                const v = voterMap.get(r.voterId);
+                const overdue = r.dueAt && new Date(r.dueAt).getTime() < Date.now();
+                const time = r.dueAt ? new Date(r.dueAt).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+                return (
+                  <button key={r.id} onClick={() => router.push("/reminders")}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border, #e2e8f0)", background: overdue ? "rgba(239,68,68,0.04)" : "#fff", cursor: "pointer", textAlign: "right", width: "100%" }}>
+                    <CalendarClock size={15} color={overdue ? "#dc2626" : "#209dd7"} style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {v ? `${v.firstName} ${v.lastName}` : "בוחר"} — {r.text}
+                      </div>
+                      <div style={{ fontSize: 11, color: overdue ? "#dc2626" : "#94a3b8", fontWeight: overdue ? 700 : 400 }}>{time}{overdue ? " · עבר זמנו" : ""}</div>
+                    </div>
+                    <ChevronLeft size={15} color="#cbd5e1" style={{ flexShrink: 0 }} />
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

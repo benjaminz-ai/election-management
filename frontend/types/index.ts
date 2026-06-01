@@ -70,6 +70,17 @@ export type CallStatus = {
   color: string;
 };
 
+export type Reminder = {
+  id: string;
+  voterId: string;
+  userId: string;        // owner — reminders are personal, shown only to their creator
+  text: string;
+  dueAt?: string;        // ISO datetime (date + time)
+  done: boolean;
+  createdAt: string;
+  completedAt?: string;
+};
+
 export type ConversationLog = {
   id: string;
   voterId: string;
@@ -103,4 +114,5 @@ export type AppState = {
   statuses: Status[];
   callStatuses: CallStatus[];
   users: AppUser[];
+  reminders: Reminder[];
 };
