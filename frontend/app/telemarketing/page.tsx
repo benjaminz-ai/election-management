@@ -586,4 +586,82 @@ export default function TelemarketingPage() {
                                   </span>
                                 )}
                                 {!cs && log.callStatus && (
-                                  <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "#
+                                  <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "#f3f4f6", color: "#64748b" }}>{log.callStatus}</span>
+                                )}
+                                {ss && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: ss.color + "22", color: ss.color }}>
+                                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: ss.color, display: "inline-block" }} />
+                                    {ss.name}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>{formatDate(log.timestamp)}</div>
+                            </div>
+                            {log.notes
+                              ? <p style={{ margin: 0, color: "#374151", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{log.notes}</p>
+                              : <p style={{ margin: 0, color: "#bbb", fontSize: 12, fontStyle: "italic" }}>אין הערות</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+        .tele-panels { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+        .tele-list-panel { background: #fff; border-radius: 14px; border: 1.5px solid #f1f5f9; box-shadow: 0 2px 12px rgba(0,0,0,.06); overflow: hidden; }
+        .tele-workspace { min-width: 0; }
+        @media (max-width: 900px) {
+          .tele-panels { grid-template-columns: 1fr; }
+          .tele-list-panel { max-height: 50vh; overflow-y: auto; }
+        }
+      `}</style>
+    </div>
+  );
+}f3f4f6", color: "#64748b" }}>{log.callStatus}</span>
+                                )}
+                                {ss && (
+                                  <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: ss.color + "22", color: ss.color }}>
+                                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: ss.color, display: "inline-block" }} />
+                                    {ss.name}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>{formatDate(log.timestamp)}</div>
+                            </div>
+                            {log.notes
+                              ? <p style={{ margin: 0, color: "#374151", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{log.notes}</p>
+                              : <p style={{ margin: 0, color: "#bbb", fontSize: 12, fontStyle: "italic" }}>אין הערות</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+        .tele-panels { display: grid; grid-template-columns: 340px 1fr; gap: 20px; align-items: start; }
+        .tele-list-panel { background: #fff; border-radius: 14px; border: 1.5px solid #f1f5f9; box-shadow: 0 2px 12px rgba(0,0,0,.06); overflow: hidden; }
+        .tele-workspace { min-width: 0; }
+        @media (max-width: 900px) {
+          .tele-panels { grid-template-columns: 1fr; }
+          .tele-list-panel { max-height: 50vh; overflow-y: auto; }
+        }
+      `}</style>
+    </div>
+  );
+}

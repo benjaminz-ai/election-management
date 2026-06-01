@@ -237,4 +237,212 @@ export default function GroupsPage() {
                 </div>
 
                 {isExpanded && (
-                  <div style={{ 
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                    {groupSubGroups.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "var(--gray-text)", padding: "4px 0" }}>אין תת-קבוצות</div>
+                    ) : (
+                      groupSubGroups.map((sg) => {
+                        const sgVoterCount = sg.voterIds.length;
+                        return (
+                          <div key={sg.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(32,157,215,0.05)", borderRadius: 8, padding: "7px 10px" }}>
+                            <div>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dark-navy)" }}>{sg.name}</span>
+                              <span style={{ fontSize: 11, color: "var(--gray-text)", marginRight: 8 }}>{sgVoterCount} בוחרים</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              <button className="btn-icon" style={{ padding: 4 }} onClick={() => openEditSubGroup(sg)}><Pencil size={11} /></button>
+                              <button className="btn-icon" style={{ padding: 4, color: "#ef4444" }} onClick={() => setDeleteSubTarget(sg)}><Trash2 size={11} /></button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {groups.length > 0 && <ScrollSentinel onIntersect={loadMore} />}
+      <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="קבוצות" />
+
+      {groups.length === 0 && (
+        <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--gray-text)" }}>
+          אין קבוצות. לחץ "הוסף קבוצה" כדי להתחיל.
+        </div>
+      )}
+
+      {showForm && (
+        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(32,157,215,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <UsersRound size={17} color="var(--blue-primary)" />
+              </div>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--dark-navy)" }}>
+                {editing ? "עריכת קבוצה" : "הוספת קבוצה"}
+              </h2>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 14 }}>
+                <label className="label">שם הקבוצה</label>
+                <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="לדוגמה: הורים - בית ספר יסודי" />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label className="label">ראש קבוצה {!editing && <span style={{ color: "#ef4444" }}>*</span>}</label>
+                <select className="input" value={form.groupLeaderId ?? ""} onChange={(e) => setForm({ ...form, groupLeaderId: e.target.value || null })} required={!editing}>
+                  <option value="">בחר ראש קבוצה...</option>
+                  {groupLeaders.map((gl) => (
+                    <option key={gl.id} value={gl.id}>{gl.firstName} {gl.lastName}</option>
+                  ))}
+                </select>
+                {!editing && <p style={{ fontSize: 12, color: "var(--gray-text)", marginTop: 4 }}>חובה לשייך ראש קבוצה בעת יצירת קבוצה חדשה</p>}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>ביטול</button>
+                <button type="submit" className="btn-primary">{editing ? "שמור שינויים" : "צור קבוצה"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showSubForm && (
+        <div className="modal-overlay" onClick={() => setShowSubForm(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(32,157,215,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <FolderTree size={17} color="var(--blue-primary)" />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--dark-navy)" }}>{editingSubGroup ? "עריכת תת-קבוצה" : "הוספת תת-קבוצה"}</h2>
+                <div style={{ fontSize: 12, color: "var(--gray-text)", marginTop: 2 }}>תחת: {groups.find((g) => g.id === subFormParentGroupId)?.name}</div>
+              </div>
+            </div>
+            <form onSubmit={handleSubSubmit}>
+              <div style={{ marginBottom: 20 }}>
+                <label className="label">שם תת-הקבוצה</label>
+                <input className="input" required autoFocus value={subFormName} onChange={(e) => setSubFormName(e.target.value)} placeholder="לדוגמה: צעירים" />
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowSubForm(false)}>ביטול</button>
+                <button type="submit" className="btn-primary">{editingSubGroup ? "שמור שינויים" : "צור תת-קבוצה"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {renameConfirm && <ConfirmDialog title="שינוי שם קבוצה" message={`שינוי שם הקבוצה מ-"${renameConfirm.group.name}" ל-"${renameConfirm.newName}" יתעדכן בכל הרשומות במערכת. פעולה זו בלתי הפיכה.`} confirmLabel="אשר שינוי שם" onConfirm={confirmRename} onCancel={() => setRenameConfirm(null)} danger={false} />}
+      {deleteTarget && <ConfirmDialog title="מחיקת קבוצה" message={`האם למחוק את הקבוצה "${deleteTarget.name}"? כל תת-הקבוצות שלה יימחקו גם כן. פעולה זו בלתי הפיכה.`} confirmLabel="מחק קבוצה" onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />}
+      {subRenameConfirm && <ConfirmDialog title="שינוי שם תת-קבוצה" message={`שינוי שם תת-הקבוצה מ-"${subRenameConfirm.sg.name}" ל-"${subRenameConfirm.newName}".`} confirmLabel="אשר שינוי שם" onConfirm={confirmSubRename} onCancel={() => setSubRenameConfirm(null)} danger={false} />}
+      {deleteSubTarget && <ConfirmDialog title="מחיקת תת-קבוצה" message={`האם למחוק את תת-הקבוצה "${deleteSubTarget.name}"? הבוחרים לא יימחקו, אך השיוך לתת-קבוצה יוסר. פעולה זו בלתי הפיכה.`} confirmLabel="מחק תת-קבוצה" onConfirm={confirmDeleteSubGroup} onCancel={() => setDeleteSubTarget(null)} />}
+    </div>
+  );
+}display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+                    {groupSubGroups.length === 0 ? (
+                      <div style={{ fontSize: 12, color: "var(--gray-text)", padding: "4px 0" }}>אין תת-קבוצות</div>
+                    ) : (
+                      groupSubGroups.map((sg) => {
+                        const sgVoterCount = sg.voterIds.length;
+                        return (
+                          <div key={sg.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "rgba(32,157,215,0.05)", borderRadius: 8, padding: "7px 10px" }}>
+                            <div>
+                              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dark-navy)" }}>{sg.name}</span>
+                              <span style={{ fontSize: 11, color: "var(--gray-text)", marginRight: 8 }}>{sgVoterCount} בוחרים</span>
+                            </div>
+                            <div style={{ display: "flex", gap: 3 }}>
+                              <button className="btn-icon" style={{ padding: 4 }} onClick={() => openEditSubGroup(sg)}><Pencil size={11} /></button>
+                              <button className="btn-icon" style={{ padding: 4, color: "#ef4444" }} onClick={() => setDeleteSubTarget(sg)}><Trash2 size={11} /></button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {groups.length > 0 && <ScrollSentinel onIntersect={loadMore} />}
+      <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="קבוצות" />
+
+      {groups.length === 0 && (
+        <div className="card" style={{ padding: 48, textAlign: "center", color: "var(--gray-text)" }}>
+          אין קבוצות. לחץ "הוסף קבוצה" כדי להתחיל.
+        </div>
+      )}
+
+      {showForm && (
+        <div className="modal-overlay" onClick={() => setShowForm(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(32,157,215,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <UsersRound size={17} color="var(--blue-primary)" />
+              </div>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--dark-navy)" }}>
+                {editing ? "עריכת קבוצה" : "הוספת קבוצה"}
+              </h2>
+            </div>
+            <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 14 }}>
+                <label className="label">שם הקבוצה</label>
+                <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="לדוגמה: הורים - בית ספר יסודי" />
+              </div>
+              <div style={{ marginBottom: 20 }}>
+                <label className="label">ראש קבוצה {!editing && <span style={{ color: "#ef4444" }}>*</span>}</label>
+                <select className="input" value={form.groupLeaderId ?? ""} onChange={(e) => setForm({ ...form, groupLeaderId: e.target.value || null })} required={!editing}>
+                  <option value="">בחר ראש קבוצה...</option>
+                  {groupLeaders.map((gl) => (
+                    <option key={gl.id} value={gl.id}>{gl.firstName} {gl.lastName}</option>
+                  ))}
+                </select>
+                {!editing && <p style={{ fontSize: 12, color: "var(--gray-text)", marginTop: 4 }}>חובה לשייך ראש קבוצה בעת יצירת קבוצה חדשה</p>}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>ביטול</button>
+                <button type="submit" className="btn-primary">{editing ? "שמור שינויים" : "צור קבוצה"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showSubForm && (
+        <div className="modal-overlay" onClick={() => setShowSubForm(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420 }}>
+            <div style={{ marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(32,157,215,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <FolderTree size={17} color="var(--blue-primary)" />
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "var(--dark-navy)" }}>{editingSubGroup ? "עריכת תת-קבוצה" : "הוספת תת-קבוצה"}</h2>
+                <div style={{ fontSize: 12, color: "var(--gray-text)", marginTop: 2 }}>תחת: {groups.find((g) => g.id === subFormParentGroupId)?.name}</div>
+              </div>
+            </div>
+            <form onSubmit={handleSubSubmit}>
+              <div style={{ marginBottom: 20 }}>
+                <label className="label">שם תת-הקבוצה</label>
+                <input className="input" required autoFocus value={subFormName} onChange={(e) => setSubFormName(e.target.value)} placeholder="לדוגמה: צעירים" />
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowSubForm(false)}>ביטול</button>
+                <button type="submit" className="btn-primary">{editingSubGroup ? "שמור שינויים" : "צור תת-קבוצה"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {renameConfirm && <ConfirmDialog title="שינוי שם קבוצה" message={`שינוי שם הקבוצה מ-"${renameConfirm.group.name}" ל-"${renameConfirm.newName}" יתעדכן בכל הרשומות במערכת. פעולה זו בלתי הפיכה.`} confirmLabel="אשר שינוי שם" onConfirm={confirmRename} onCancel={() => setRenameConfirm(null)} danger={false} />}
+      {deleteTarget && <ConfirmDialog title="מחיקת קבוצה" message={`האם למחוק את הקבוצה "${deleteTarget.name}"? כל תת-הקבוצות שלה יימחקו גם כן. פעולה זו בלתי הפיכה.`} confirmLabel="מחק קבוצה" onConfirm={confirmDelete} onCancel={() => setDeleteTarget(null)} />}
+      {subRenameConfirm && <ConfirmDialog title="שינוי שם תת-קבוצה" message={`שינוי שם תת-הקבוצה מ-"${subRenameConfirm.sg.name}" ל-"${subRenameConfirm.newName}".`} confirmLabel="אשר שינוי שם" onConfirm={confirmSubRename} onCancel={() => setSubRenameConfirm(null)} danger={false} />}
+      {deleteSubTarget && <ConfirmDialog title="מחיקת תת-קבוצה" message={`האם למחוק את תת-הקבוצה "${deleteSubTarget.name}"? הבוחרים לא יימחקו, אך השיוך לתת-קבוצה יוסר. פעולה זו בלתי הפיכה.`} confirmLabel="מחק תת-קבוצה" onConfirm={confirmDeleteSubGroup} onCancel={() => setDeleteSubTarget(null)} />}
+    </div>
+  );
+}

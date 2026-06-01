@@ -297,4 +297,164 @@ export default function VotersPage() {
                           style={{
                             padding: "5px 12px",
                             borderRadius: 20,
-         
+                            border: groupSelected ? "1px solid var(--blue-primary)" : "1px solid var(--border)",
+                            background: groupSelected ? "rgba(32,157,215,0.1)" : "#fff",
+                            color: groupSelected ? "var(--blue-primary)" : "var(--gray-text)",
+                            fontWeight: groupSelected ? 600 : 400,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          {g.name}
+                        </button>
+
+                        {groupSelected && groupSubGroups.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, paddingRight: 16 }}>
+                            {groupSubGroups.map((sg) => {
+                              const sgSelected = (form.subGroupIds ?? []).includes(sg.id);
+                              return (
+                                <button
+                                  key={sg.id}
+                                  type="button"
+                                  onClick={() => toggleSubGroup(sg.id, g.id)}
+                                  style={{
+                                    padding: "3px 10px",
+                                    borderRadius: 20,
+                                    border: sgSelected ? "1px solid #8b5cf6" : "1px dashed var(--border)",
+                                    background: sgSelected ? "rgba(139,92,246,0.1)" : "#fff",
+                                    color: sgSelected ? "#8b5cf6" : "var(--gray-text)",
+                                    fontWeight: sgSelected ? 600 : 400,
+                                    fontSize: 11,
+                                    cursor: "pointer",
+                                    transition: "all 0.15s",
+                                  }}
+                                >
+                                  ↳ {sg.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>ביטול</button>
+                <button type="submit" className="btn-primary">{editing ? "שמור שינויים" : "הוסף בוחר"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="מחיקת בוחר"
+          message={`האם למחוק את ${deleteTarget.firstName} ${deleteTarget.lastName}? פעולה זו בלתי הפיכה.`}
+          confirmLabel="מחק בוחר"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  textAlign: "right",
+  fontSize: 12,
+  fontWeight: 600,
+  color: "var(--gray-text)",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: "14px 16px",
+  verticalAlign: "middle",
+};                            border: groupSelected ? "1px solid var(--blue-primary)" : "1px solid var(--border)",
+                            background: groupSelected ? "rgba(32,157,215,0.1)" : "#fff",
+                            color: groupSelected ? "var(--blue-primary)" : "var(--gray-text)",
+                            fontWeight: groupSelected ? 600 : 400,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          {g.name}
+                        </button>
+
+                        {groupSelected && groupSubGroups.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, paddingRight: 16 }}>
+                            {groupSubGroups.map((sg) => {
+                              const sgSelected = (form.subGroupIds ?? []).includes(sg.id);
+                              return (
+                                <button
+                                  key={sg.id}
+                                  type="button"
+                                  onClick={() => toggleSubGroup(sg.id, g.id)}
+                                  style={{
+                                    padding: "3px 10px",
+                                    borderRadius: 20,
+                                    border: sgSelected ? "1px solid #8b5cf6" : "1px dashed var(--border)",
+                                    background: sgSelected ? "rgba(139,92,246,0.1)" : "#fff",
+                                    color: sgSelected ? "#8b5cf6" : "var(--gray-text)",
+                                    fontWeight: sgSelected ? 600 : 400,
+                                    fontSize: 11,
+                                    cursor: "pointer",
+                                    transition: "all 0.15s",
+                                  }}
+                                >
+                                  ↳ {sg.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>ביטול</button>
+                <button type="submit" className="btn-primary">{editing ? "שמור שינויים" : "הוסף בוחר"}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="מחיקת בוחר"
+          message={`האם למחוק את ${deleteTarget.firstName} ${deleteTarget.lastName}? פעולה זו בלתי הפיכה.`}
+          confirmLabel="מחק בוחר"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+const thStyle: React.CSSProperties = {
+  padding: "12px 16px",
+  textAlign: "right",
+  fontSize: 12,
+  fontWeight: 600,
+  color: "var(--gray-text)",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: "14px 16px",
+  verticalAlign: "middle",
+};

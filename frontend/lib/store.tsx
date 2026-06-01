@@ -487,4 +487,218 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteStatus = (id: string) => {
-    const toDelete = stateRef.current.status
+    const toDelete = stateRef.current.statuses.find((s) => s.id === id);
+    if (!toDelete || toDelete.isDefault) return;
+    setState((s) => ({ ...s, statuses: s.statuses.filter((st) => st.id !== id) }));
+    deleteDoc(doc(db, "statuses", id)).catch(console.error);
+  };
+
+  const setDefaultStatus = (id: string) => {
+    const updated = stateRef.current.statuses.map((s) => ({ ...s, isDefault: s.id === id }));
+    setState((s) => ({ ...s, statuses: updated }));
+    const batch = writeBatch(db);
+    updated.forEach((s) => batch.set(doc(db, "statuses", s.id), s));
+    batch.commit().catch(console.error);
+  };
+
+  // ── Call Statuses ─────────────────────────────────────────────────────────────
+
+  const addCallStatus = (cs: CallStatus) => {
+    setState((s) => ({ ...s, callStatuses: [...s.callStatuses, cs] }));
+    setDoc(doc(db, "callStatuses", cs.id), cs).catch(console.error);
+  };
+
+  const updateCallStatus = (cs: CallStatus) => {
+    setState((s) => ({
+      ...s,
+      callStatuses: s.callStatuses.map((c) => (c.id === cs.id ? cs : c)),
+    }));
+    setDoc(doc(db, "callStatuses", cs.id), cs).catch(console.error);
+  };
+
+  const deleteCallStatus = (id: string) => {
+    setState((s) => ({ ...s, callStatuses: s.callStatuses.filter((c) => c.id !== id) }));
+    deleteDoc(doc(db, "callStatuses", id)).catch(console.error);
+  };
+
+  // ── Users ─────────────────────────────────────────────────────────────────────
+
+  const addUser = (user: AppUser) => {
+    setState((s) => ({ ...s, users: [...s.users, user] }));
+    setDoc(doc(db, "users", user.id), user).catch(console.error);
+  };
+
+  const updateUser = (user: AppUser) => {
+    setState((s) => ({
+      ...s,
+      users: s.users.map((u) => (u.id === user.id ? user : u)),
+    }));
+    setDoc(doc(db, "users", user.id), user).catch(console.error);
+  };
+
+  const freezeUser = (id: string, frozen: boolean) => {
+    const user = stateRef.current.users.find((u) => u.id === id);
+    if (!user) return;
+    const updated = { ...user, isFrozen: frozen };
+    setState((s) => ({
+      ...s,
+      users: s.users.map((u) => (u.id === id ? updated : u)),
+    }));
+    updateDoc(doc(db, "users", id), { isFrozen: frozen }).catch(console.error);
+  };
+
+  const refreshUsers = async (): Promise<void> => {
+    try {
+      const snap = await getDocs(collection(db, "users"));
+      const users = snap.docs.map((d) => d.data() as AppUser);
+      if (users.length > 0) {
+        setState((s) => ({ ...s, users }));
+      }
+    } catch (e) {
+      console.error("refreshUsers failed", e);
+    }
+  };
+
+  return (
+    <StoreContext.Provider
+      value={{
+        state,
+        loading,
+        addVoter,
+        updateVoter,
+        deleteVoter,
+        addGroup,
+        updateGroup,
+        deleteGroup,
+        addSubGroup,
+        updateSubGroup,
+        deleteSubGroup,
+        addGroupLeader,
+        updateGroupLeader,
+        deleteGroupLeader,
+        addDivisionHead,
+        updateDivisionHead,
+        deleteDivisionHead,
+        addStatus,
+        updateStatus,
+        deleteStatus,
+        setDefaultStatus,
+        addCallStatus,
+        updateCallStatus,
+        deleteCallStatus,
+        addUser,
+        updateUser,
+        freezeUser,
+      }}
+    >
+      {children}
+    </StoreContext.Provider>
+  );
+}
+
+export function useStore() {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error("useStore must be used within StoreProvider");
+  return ctx;
+}s.find((s) => s.id === id);
+    if (!toDelete || toDelete.isDefault) return;
+    setState((s) => ({ ...s, statuses: s.statuses.filter((st) => st.id !== id) }));
+    deleteDoc(doc(db, "statuses", id)).catch(console.error);
+  };
+
+  const setDefaultStatus = (id: string) => {
+    const updated = stateRef.current.statuses.map((s) => ({ ...s, isDefault: s.id === id }));
+    setState((s) => ({ ...s, statuses: updated }));
+    const batch = writeBatch(db);
+    updated.forEach((s) => batch.set(doc(db, "statuses", s.id), s));
+    batch.commit().catch(console.error);
+  };
+
+  // ── Call Statuses ─────────────────────────────────────────────────────────────
+
+  const addCallStatus = (cs: CallStatus) => {
+    setState((s) => ({ ...s, callStatuses: [...s.callStatuses, cs] }));
+    setDoc(doc(db, "callStatuses", cs.id), cs).catch(console.error);
+  };
+
+  const updateCallStatus = (cs: CallStatus) => {
+    setState((s) => ({
+      ...s,
+      callStatuses: s.callStatuses.map((c) => (c.id === cs.id ? cs : c)),
+    }));
+    setDoc(doc(db, "callStatuses", cs.id), cs).catch(console.error);
+  };
+
+  const deleteCallStatus = (id: string) => {
+    setState((s) => ({ ...s, callStatuses: s.callStatuses.filter((c) => c.id !== id) }));
+    deleteDoc(doc(db, "callStatuses", id)).catch(console.error);
+  };
+
+  // ── Users ─────────────────────────────────────────────────────────────────────
+
+  const addUser = (user: AppUser) => {
+    setState((s) => ({ ...s, users: [...s.users, user] }));
+    setDoc(doc(db, "users", user.id), user).catch(console.error);
+  };
+
+  const updateUser = (user: AppUser) => {
+    setState((s) => ({
+      ...s,
+      users: s.users.map((u) => (u.id === user.id ? user : u)),
+    }));
+    setDoc(doc(db, "users", user.id), user).catch(console.error);
+  };
+
+  const freezeUser = (id: string, frozen: boolean) => {
+    const user = stateRef.current.users.find((u) => u.id === id);
+    if (!user) return;
+    const updated = { ...user, isFrozen: frozen };
+    setState((s) => ({
+      ...s,
+      users: s.users.map((u) => (u.id === id ? updated : u)),
+    }));
+    updateDoc(doc(db, "users", id), { isFrozen: frozen }).catch(console.error);
+  };
+
+  return (
+    <StoreContext.Provider
+      value={{
+        state,
+        loading,
+        addVoter,
+        updateVoter,
+        deleteVoter,
+        addGroup,
+        updateGroup,
+        deleteGroup,
+        addSubGroup,
+        updateSubGroup,
+        deleteSubGroup,
+        addGroupLeader,
+        updateGroupLeader,
+        deleteGroupLeader,
+        addDivisionHead,
+        updateDivisionHead,
+        deleteDivisionHead,
+        addStatus,
+        updateStatus,
+        deleteStatus,
+        setDefaultStatus,
+        addCallStatus,
+        updateCallStatus,
+        deleteCallStatus,
+        addUser,
+        updateUser,
+        freezeUser,
+      }}
+    >
+      {children}
+    </StoreContext.Provider>
+  );
+}
+
+export function useStore() {
+  const ctx = useContext(StoreContext);
+  if (!ctx) throw new Error("useStore must be used within StoreProvider");
+  return ctx;
+}
