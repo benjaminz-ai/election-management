@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useStore } from "@/lib/store"; // advanced search + bulk actions
 import { formatAddress } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
@@ -102,7 +102,22 @@ export default function SearchPage() {
   };
   const getVoterGroups = (voter: typeof voters[0]) => groups.filter((g) => voter.groupIds.includes(g.id));
 
-  const { visible: visibleResults, hasMore, loadMore, showing } = usePagination(results);
+  const { visible: visibleResults, hasMore, loadMore, showing } = usePagination(results, 20);
+
+  // Stable ref so the scroll listener always calls the latest loadMore
+  const loadMoreRef = useRef(loadMore);
+  useEffect(() => { loadMoreRef.current = loadMore; });
+  useEffect(() => {
+    const mainEl = document.getElementById("main-scroll");
+    if (!mainEl) return;
+    const onScroll = () => {
+      if (mainEl.scrollHeight - mainEl.scrollTop <= mainEl.clientHeight + 300) {
+        loadMoreRef.current();
+      }
+    };
+    mainEl.addEventListener("scroll", onScroll, { passive: true });
+    return () => mainEl.removeEventListener("scroll", onScroll);
+  }, []);
 
   const activeFilterCount =
     (statusId ? 1 : 0) + (groupId ? 1 : 0) + (leaderId ? 1 : 0) +
