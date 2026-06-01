@@ -12,9 +12,15 @@ export type Voter = {
     city: string;
   };
   groupIds: string[];
+  subGroupIds?: string[];
   statusId?: string;
-  lastCallStatusId?: string;
-  hasVoted?: boolean;
+};
+
+export type SubGroup = {
+  id: string;
+  name: string;
+  parentGroupId: string;
+  voterIds: string[];
 };
 
 export type Group = {
@@ -22,6 +28,7 @@ export type Group = {
   name: string;
   groupLeaderId: string | null;
   voterIds: string[];
+  subGroupIds?: string[];
 };
 
 export type GroupLeader = {
@@ -45,14 +52,11 @@ export type DivisionHead = {
   groupLeaderIds: string[];
 };
 
-export type StatusCategory = "supporter" | "opponent" | "undecided" | "neutral";
-
 export type Status = {
   id: string;
   name: string;
   color: string;
   isDefault: boolean;
-  category?: StatusCategory;
 };
 
 export type CallStatus = {
@@ -87,10 +91,3 @@ export type AppUser = {
 
 export type AppState = {
   voters: Voter[];
-  groups: Group[];
-  groupLeaders: GroupLeader[];
-  divisionHeads: DivisionHead[];
-  statuses: Status[];
-  callStatuses: CallStatus[];
-  users: AppUser[];
-};
