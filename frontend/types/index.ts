@@ -91,3 +91,11 @@ export type AppUser = {
 
 export type AppState = {
   voters: Voter[];
+  groups: Group[];
+  subGroups: SubGroup[];
+  groupLeaders: GroupLeader[];
+  divisionHeads: DivisionHead[];
+  statuses: Status[];
+  callStatuses: CallStatus[];
+  users: AppUser[];
+};
