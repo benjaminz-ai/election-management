@@ -8,7 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
-import { AppState, Voter, Group, GroupLeader, DivisionHead, Status, CallStatus, ConversationLog, AppUser } from "@/types";
+import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, ConversationLog, AppUser } from "@/types";
 import {
   initialVoters,
   initialGroups,
@@ -41,6 +41,9 @@ type StoreContextType = {
   addGroup: (group: Group) => void;
   updateGroup: (group: Group) => void;
   deleteGroup: (id: string) => void;
+  addSubGroup: (sg: SubGroup) => void;
+  updateSubGroup: (sg: SubGroup) => void;
+  deleteSubGroup: (id: string) => void;
   addGroupLeader: (gl: GroupLeader) => void;
   updateGroupLeader: (gl: GroupLeader) => void;
   deleteGroupLeader: (id: string) => void;
@@ -64,6 +67,7 @@ const StoreContext = createContext<StoreContextType | null>(null);
 const EMPTY_STATE: AppState = {
   voters: [],
   groups: [],
+  subGroups: [],
   groupLeaders: [],
   divisionHeads: [],
   statuses: [],
@@ -75,6 +79,7 @@ async function seedFirestore(data: AppState) {
   const batch = writeBatch(db);
   data.voters.forEach((v) => batch.set(doc(db, "voters", v.id), v));
   data.groups.forEach((g) => batch.set(doc(db, "groups", g.id), g));
+  data.subGroups.forEach((sg) => batch.set(doc(db, "subGroups", sg.id), sg));
   data.groupLeaders.forEach((gl) => batch.set(doc(db, "groupLeaders", gl.id), gl));
   data.divisionHeads.forEach((dh) => batch.set(doc(db, "divisionHeads", dh.id), dh));
   data.statuses.forEach((s) => batch.set(doc(db, "statuses", s.id), s));
@@ -85,10 +90,11 @@ async function seedFirestore(data: AppState) {
 }
 
 async function loadFromFirestore(): Promise<AppState | null> {
-  const [votersSnap, groupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap] =
+  const [votersSnap, groupsSnap, subGroupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap] =
     await Promise.all([
       getDocs(collection(db, "voters")),
       getDocs(collection(db, "groups")),
+      getDocs(collection(db, "subGroups")),
       getDocs(collection(db, "groupLeaders")),
       getDocs(collection(db, "divisionHeads")),
       getDocs(collection(db, "statuses")),
@@ -98,6 +104,7 @@ async function loadFromFirestore(): Promise<AppState | null> {
 
   const voters = votersSnap.docs.map((d: { data(): unknown }) => d.data() as Voter);
   const groups = groupsSnap.docs.map((d: { data(): unknown }) => d.data() as Group);
+  const subGroups = subGroupsSnap.docs.map((d: { data(): unknown }) => d.data() as SubGroup);
   const groupLeaders = glSnap.docs.map((d: { data(): unknown }) => d.data() as GroupLeader);
   const divisionHeads = dhSnap.docs.map((d: { data(): unknown }) => d.data() as DivisionHead);
   const statuses = statusesSnap.docs.map((d: { data(): unknown }) => d.data() as Status);
@@ -110,6 +117,7 @@ async function loadFromFirestore(): Promise<AppState | null> {
   return {
     voters,
     groups,
+    subGroups,
     groupLeaders,
     divisionHeads,
     statuses: statuses.length > 0 ? statuses : initialStatuses,
@@ -140,6 +148,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const seed: AppState = {
             voters: initialVoters,
             groups: initialGroups,
+            subGroups: [],
             groupLeaders: initialGroupLeaders,
             divisionHeads: initialDivisionHeads,
             statuses: initialStatuses,
@@ -154,6 +163,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState({
           voters: initialVoters,
           groups: initialGroups,
+          subGroups: [],
           groupLeaders: initialGroupLeaders,
           divisionHeads: initialDivisionHeads,
           statuses: initialStatuses,
@@ -177,10 +187,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ? { ...g, voterIds: [...g.voterIds, voter.id] }
           : g
       ),
+      subGroups: s.subGroups.map((sg) =>
+        (voter.subGroupIds ?? []).includes(sg.id)
+          ? { ...sg, voterIds: [...sg.voterIds, voter.id] }
+          : sg
+      ),
     }));
     setDoc(doc(db, "voters", voter.id), voter).catch(console.error);
     voter.groupIds.forEach((gid) =>
       updateDoc(doc(db, "groups", gid), { voterIds: arrayUnion(voter.id) }).catch(console.error)
+    );
+    (voter.subGroupIds ?? []).forEach((sgid) =>
+      updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayUnion(voter.id) }).catch(console.error)
     );
   };
 
@@ -201,12 +219,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...g,
         voterIds: g.voterIds.filter((vid) => vid !== id),
       })),
+      subGroups: s.subGroups.map((sg) => ({
+        ...sg,
+        voterIds: sg.voterIds.filter((vid) => vid !== id),
+      })),
     }));
     deleteDoc(doc(db, "voters", id)).catch(console.error);
-    if (voter)
+    if (voter) {
       voter.groupIds.forEach((gid) =>
         updateDoc(doc(db, "groups", gid), { voterIds: arrayRemove(id) }).catch(console.error)
       );
+      (voter.subGroupIds ?? []).forEach((sgid) =>
+        updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayRemove(id) }).catch(console.error)
+      );
+    }
   };
 
   // ── Groups ────────────────────────────────────────────────────────────────────
@@ -264,12 +290,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteGroup = (id: string) => {
     const group = stateRef.current.groups.find((g) => g.id === id);
+    const subGroupsToDelete = stateRef.current.subGroups.filter((sg) => sg.parentGroupId === id);
+    const subGroupIds = subGroupsToDelete.map((sg) => sg.id);
     setState((s) => ({
       ...s,
       groups: s.groups.filter((g) => g.id !== id),
+      subGroups: s.subGroups.filter((sg) => sg.parentGroupId !== id),
       voters: s.voters.map((v) => ({
         ...v,
         groupIds: v.groupIds.filter((gid) => gid !== id),
+        subGroupIds: (v.subGroupIds ?? []).filter((sgid) => !subGroupIds.includes(sgid)),
       })),
       groupLeaders: s.groupLeaders.map((gl) => ({
         ...gl,
@@ -277,6 +307,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })),
     }));
     deleteDoc(doc(db, "groups", id)).catch(console.error);
+    subGroupsToDelete.forEach((sg) => deleteDoc(doc(db, "subGroups", sg.id)).catch(console.error));
     if (group) {
       if (group.groupLeaderId)
         updateDoc(doc(db, "groupLeaders", group.groupLeaderId), {
@@ -284,6 +315,54 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }).catch(console.error);
       group.voterIds.forEach((vId) =>
         updateDoc(doc(db, "voters", vId), { groupIds: arrayRemove(id) }).catch(console.error)
+      );
+    }
+  };
+
+  // ── Sub Groups ────────────────────────────────────────────────────────────────
+
+  const addSubGroup = (sg: SubGroup) => {
+    setState((s) => ({
+      ...s,
+      subGroups: [...s.subGroups, sg],
+      groups: s.groups.map((g) =>
+        g.id === sg.parentGroupId
+          ? { ...g, subGroupIds: [...(g.subGroupIds ?? []), sg.id] }
+          : g
+      ),
+    }));
+    setDoc(doc(db, "subGroups", sg.id), sg).catch(console.error);
+    updateDoc(doc(db, "groups", sg.parentGroupId), { subGroupIds: arrayUnion(sg.id) }).catch(console.error);
+  };
+
+  const updateSubGroup = (sg: SubGroup) => {
+    setState((s) => ({
+      ...s,
+      subGroups: s.subGroups.map((x) => (x.id === sg.id ? sg : x)),
+    }));
+    setDoc(doc(db, "subGroups", sg.id), sg).catch(console.error);
+  };
+
+  const deleteSubGroup = (id: string) => {
+    const sg = stateRef.current.subGroups.find((x) => x.id === id);
+    setState((s) => ({
+      ...s,
+      subGroups: s.subGroups.filter((x) => x.id !== id),
+      groups: s.groups.map((g) =>
+        g.id === sg?.parentGroupId
+          ? { ...g, subGroupIds: (g.subGroupIds ?? []).filter((sid) => sid !== id) }
+          : g
+      ),
+      voters: s.voters.map((v) => ({
+        ...v,
+        subGroupIds: (v.subGroupIds ?? []).filter((sid) => sid !== id),
+      })),
+    }));
+    deleteDoc(doc(db, "subGroups", id)).catch(console.error);
+    if (sg) {
+      updateDoc(doc(db, "groups", sg.parentGroupId), { subGroupIds: arrayRemove(id) }).catch(console.error);
+      sg.voterIds.forEach((vId) =>
+        updateDoc(doc(db, "voters", vId), { subGroupIds: arrayRemove(id) }).catch(console.error)
       );
     }
   };
@@ -479,6 +558,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addGroup,
         updateGroup,
         deleteGroup,
+        addSubGroup,
+        updateSubGroup,
+        deleteSubGroup,
         addGroupLeader,
         updateGroupLeader,
         deleteGroupLeader,

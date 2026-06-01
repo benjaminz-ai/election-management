@@ -19,11 +19,12 @@ const emptyVoter = (): Voter => ({
   phone: "",
   address: { street: "", streetNumber: "", building: "", apartment: "", city: "" },
   groupIds: [],
+  subGroupIds: [],
 });
 
 export default function VotersPage() {
   const { state, addVoter, updateVoter, deleteVoter } = useStore();
-  const { voters, groups } = state;
+  const { voters, groups, subGroups } = state;
   const { visible: visibleVoters, hasMore, loadMore, showing, total } = usePagination(voters);
 
   const [showForm, setShowForm] = useState(false);
@@ -38,7 +39,7 @@ export default function VotersPage() {
   };
 
   const openEdit = (v: Voter) => {
-    setForm({ ...v, address: { ...v.address } });
+    setForm({ ...v, address: { ...v.address }, subGroupIds: v.subGroupIds ?? [] });
     setEditing(v);
     setShowForm(true);
   };
@@ -61,12 +62,42 @@ export default function VotersPage() {
   };
 
   const toggleGroup = (gid: string) => {
-    setForm((f) => ({
-      ...f,
-      groupIds: f.groupIds.includes(gid)
-        ? f.groupIds.filter((id) => id !== gid)
-        : [...f.groupIds, gid],
-    }));
+    setForm((f) => {
+      const removing = f.groupIds.includes(gid);
+      // When removing a group, also remove any subGroups of that group
+      const removedSubGroupIds = removing
+        ? (f.subGroupIds ?? []).filter((sid) => {
+            const sg = subGroups.find((x) => x.id === sid);
+            return sg?.parentGroupId === gid;
+          })
+        : [];
+      return {
+        ...f,
+        groupIds: removing ? f.groupIds.filter((id) => id !== gid) : [...f.groupIds, gid],
+        subGroupIds: removing
+          ? (f.subGroupIds ?? []).filter((sid) => !removedSubGroupIds.includes(sid))
+          : f.subGroupIds ?? [],
+      };
+    });
+  };
+
+  const toggleSubGroup = (sgid: string, parentGroupId: string) => {
+    setForm((f) => {
+      const currentSubGroupIds = f.subGroupIds ?? [];
+      const removing = currentSubGroupIds.includes(sgid);
+      // When adding a subgroup, also ensure parent group is selected
+      const newGroupIds =
+        !removing && !f.groupIds.includes(parentGroupId)
+          ? [...f.groupIds, parentGroupId]
+          : f.groupIds;
+      return {
+        ...f,
+        groupIds: newGroupIds,
+        subGroupIds: removing
+          ? currentSubGroupIds.filter((id) => id !== sgid)
+          : [...currentSubGroupIds, sgid],
+      };
+    });
   };
 
   return (
@@ -97,6 +128,7 @@ export default function VotersPage() {
           <tbody>
             {visibleVoters.map((v) => {
               const voterGroups = groups.filter((g) => v.groupIds.includes(g.id));
+              const voterSubGroups = subGroups.filter((sg) => (v.subGroupIds ?? []).includes(sg.id));
               return (
                 <tr key={v.id} className="table-row">
                   <td style={tdStyle}>
@@ -138,6 +170,11 @@ export default function VotersPage() {
                           <span key={g.id} className="badge badge-blue">{g.name}</span>
                         ))
                       )}
+                      {voterSubGroups.map((sg) => (
+                        <span key={sg.id} style={{ fontSize: 11, padding: "2px 7px", borderRadius: 10, background: "rgba(139,92,246,0.1)", color: "#8b5cf6", fontWeight: 600 }}>
+                          ↳ {sg.name}
+                        </span>
+                      ))}
                     </div>
                   </td>
                   <td style={{ ...tdStyle, textAlign: "center" }}>
@@ -244,31 +281,63 @@ export default function VotersPage() {
                 </div>
               </div>
 
-              {/* Group assignment */}
+              {/* Group + SubGroup assignment */}
               <div style={{ marginBottom: 20 }}>
-                <label className="label">שיוך לקבוצות</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
+                <label className="label">שיוך לקבוצות ותת-קבוצות</label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
                   {groups.map((g) => {
-                    const selected = form.groupIds.includes(g.id);
+                    const groupSelected = form.groupIds.includes(g.id);
+                    const groupSubGroups = subGroups.filter((sg) => sg.parentGroupId === g.id);
                     return (
-                      <button
-                        key={g.id}
-                        type="button"
-                        onClick={() => toggleGroup(g.id)}
-                        style={{
-                          padding: "5px 12px",
-                          borderRadius: 20,
-                          border: selected ? "1px solid var(--blue-primary)" : "1px solid var(--border)",
-                          background: selected ? "rgba(32,157,215,0.1)" : "#fff",
-                          color: selected ? "var(--blue-primary)" : "var(--gray-text)",
-                          fontWeight: selected ? 600 : 400,
-                          fontSize: 12,
-                          cursor: "pointer",
-                          transition: "all 0.15s",
-                        }}
-                      >
-                        {g.name}
-                      </button>
+                      <div key={g.id}>
+                        {/* Group toggle */}
+                        <button
+                          type="button"
+                          onClick={() => toggleGroup(g.id)}
+                          style={{
+                            padding: "5px 12px",
+                            borderRadius: 20,
+                            border: groupSelected ? "1px solid var(--blue-primary)" : "1px solid var(--border)",
+                            background: groupSelected ? "rgba(32,157,215,0.1)" : "#fff",
+                            color: groupSelected ? "var(--blue-primary)" : "var(--gray-text)",
+                            fontWeight: groupSelected ? 600 : 400,
+                            fontSize: 12,
+                            cursor: "pointer",
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          {g.name}
+                        </button>
+
+                        {/* SubGroup toggles (only visible if group is selected and has subgroups) */}
+                        {groupSelected && groupSubGroups.length > 0 && (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, paddingRight: 16 }}>
+                            {groupSubGroups.map((sg) => {
+                              const sgSelected = (form.subGroupIds ?? []).includes(sg.id);
+                              return (
+                                <button
+                                  key={sg.id}
+                                  type="button"
+                                  onClick={() => toggleSubGroup(sg.id, g.id)}
+                                  style={{
+                                    padding: "3px 10px",
+                                    borderRadius: 20,
+                                    border: sgSelected ? "1px solid #8b5cf6" : "1px dashed var(--border)",
+                                    background: sgSelected ? "rgba(139,92,246,0.1)" : "#fff",
+                                    color: sgSelected ? "#8b5cf6" : "var(--gray-text)",
+                                    fontWeight: sgSelected ? 600 : 400,
+                                    fontSize: 11,
+                                    cursor: "pointer",
+                                    transition: "all 0.15s",
+                                  }}
+                                >
+                                  ↳ {sg.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

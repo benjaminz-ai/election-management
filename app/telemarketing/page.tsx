@@ -56,12 +56,13 @@ function buildAddress(v: Voter) {
 export default function TelemarketingPage() {
   const { state, updateVoter } = useStore();
   const { currentUser } = useAuth();
-  const { voters, groups, groupLeaders, statuses, callStatuses } = state;
+  const { voters, groups, subGroups, groupLeaders, statuses, callStatuses } = state;
 
   // Filter state
   const [filterText, setFilterText] = useState("");
   const [filterStatusId, setFilterStatusId] = useState("");
   const [filterGroupId, setFilterGroupId] = useState("");
+  const [filterSubGroupId, setFilterSubGroupId] = useState("");
   const [filterGroupLeaderId, setFilterGroupLeaderId] = useState("");
   const [filterStreet, setFilterStreet] = useState("");
 
@@ -92,14 +93,37 @@ export default function TelemarketingPage() {
 
   // ── Filtered voters ──────────────────────────────────────────────────────────
 
+  // subGroups of the currently selected group filter (for the subgroup dropdown)
+  const availableSubGroups = useMemo(
+    () => filterGroupId ? subGroups.filter((sg) => sg.parentGroupId === filterGroupId) : subGroups,
+    [subGroups, filterGroupId]
+  );
+
   const filteredVoters = useMemo(() => {
     const text = filterText.toLowerCase().trim();
     return voters.filter((v) => {
       if (filterStatusId && (v.statusId ?? defaultStatusId) !== filterStatusId) return false;
-      if (filterGroupId && !v.groupIds.includes(filterGroupId)) return false;
+      if (filterSubGroupId) {
+        // voter must be in this subgroup
+        if (!(v.subGroupIds ?? []).includes(filterSubGroupId)) return false;
+      } else if (filterGroupId) {
+        // voter in group directly OR via any subgroup of that group
+        const inGroupDirectly = v.groupIds.includes(filterGroupId);
+        const inGroupViaSubGroup = (v.subGroupIds ?? []).some((sgid) => {
+          const sg = subGroups.find((x) => x.id === sgid);
+          return sg?.parentGroupId === filterGroupId;
+        });
+        if (!inGroupDirectly && !inGroupViaSubGroup) return false;
+      }
       if (filterGroupLeaderId) {
         const gl = groupLeaders.find((g) => g.id === filterGroupLeaderId);
-        if (!gl || !v.groupIds.some((gid) => gl.groupIds.includes(gid))) return false;
+        if (!gl) return false;
+        const inLeaderGroup = v.groupIds.some((gid) => gl.groupIds.includes(gid));
+        const inLeaderSubGroup = (v.subGroupIds ?? []).some((sgid) => {
+          const sg = subGroups.find((x) => x.id === sgid);
+          return sg && gl.groupIds.includes(sg.parentGroupId);
+        });
+        if (!inLeaderGroup && !inLeaderSubGroup) return false;
       }
       if (filterStreet && !v.address.street.includes(filterStreet)) return false;
       if (text) {
@@ -109,7 +133,7 @@ export default function TelemarketingPage() {
       }
       return true;
     });
-  }, [voters, filterText, filterStatusId, filterGroupId, filterGroupLeaderId, filterStreet, defaultStatusId, groupLeaders]);
+  }, [voters, filterText, filterStatusId, filterGroupId, filterSubGroupId, filterGroupLeaderId, filterStreet, defaultStatusId, groupLeaders, subGroups]);
 
   const selectedVoter = useMemo(
     () => filteredVoters.find((v) => v.id === selectedVoterId) ?? null,
@@ -262,12 +286,25 @@ export default function TelemarketingPage() {
                 {statuses.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
 
-              <select value={filterGroupId} onChange={(e) => setFilterGroupId(e.target.value)}
+              <select value={filterGroupId} onChange={(e) => { setFilterGroupId(e.target.value); setFilterSubGroupId(""); }}
                 style={{ padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#374151", background: "#fff", outline: "none" }}>
                 <option value="">כל הקבוצות</option>
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
+
+            {availableSubGroups.length > 0 && (
+              <div style={{ marginBottom: 8 }}>
+                <select value={filterSubGroupId} onChange={(e) => setFilterSubGroupId(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, color: "#374151", background: "#fff", outline: "none" }}>
+                  <option value="">כל תת-הקבוצות</option>
+                  {availableSubGroups.map((sg) => {
+                    const parentName = groups.find((g) => g.id === sg.parentGroupId)?.name;
+                    return <option key={sg.id} value={sg.id}>{sg.name}{!filterGroupId ? ` (${parentName})` : ""}</option>;
+                  })}
+                </select>
+              </div>
+            )}
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <select value={filterGroupLeaderId} onChange={(e) => setFilterGroupLeaderId(e.target.value)}
@@ -281,9 +318,9 @@ export default function TelemarketingPage() {
                 style={{ padding: "8px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none" }} />
             </div>
 
-            {(filterText || filterStatusId || filterGroupId || filterGroupLeaderId || filterStreet) && (
+            {(filterText || filterStatusId || filterGroupId || filterSubGroupId || filterGroupLeaderId || filterStreet) && (
               <button
-                onClick={() => { setFilterText(""); setFilterStatusId(""); setFilterGroupId(""); setFilterGroupLeaderId(""); setFilterStreet(""); }}
+                onClick={() => { setFilterText(""); setFilterStatusId(""); setFilterGroupId(""); setFilterSubGroupId(""); setFilterGroupLeaderId(""); setFilterStreet(""); }}
                 style={{ marginTop: 10, width: "100%", padding: "7px", border: "1.5px solid #e2e8f0", borderRadius: 8, background: "#fff", color: "#888", fontSize: 13, cursor: "pointer" }}>
                 נקה סינון
               </button>
@@ -403,6 +440,11 @@ export default function TelemarketingPage() {
                     {getVoterGroups(selectedVoter).map((g) => (
                       <span key={g.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 12px", borderRadius: 20, fontSize: 12, background: "rgba(32,157,215,0.09)", color: "#0e6fa0", fontWeight: 500 }}>
                         <Users size={11} />{g.name}
+                      </span>
+                    ))}
+                    {subGroups.filter((sg) => (selectedVoter.subGroupIds ?? []).includes(sg.id)).map((sg) => (
+                      <span key={sg.id} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 12px", borderRadius: 20, fontSize: 12, background: "rgba(139,92,246,0.09)", color: "#8b5cf6", fontWeight: 500 }}>
+                        ↳ {sg.name}
                       </span>
                     ))}
                     {(() => {
