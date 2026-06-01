@@ -37,6 +37,10 @@ type StoreContextType = {
   loading: boolean;
   addVoter: (voter: Voter) => void;
   updateVoter: (voter: Voter) => void;
+  bulkUpdateVoters: (
+    ids: string[],
+    changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string }
+  ) => void;
   deleteVoter: (id: string) => void;
   importVoters: (voters: Voter[]) => void;
   addGroup: (group: Group) => void;
@@ -218,6 +222,66 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDoc(doc(db, "voters", voter.id), voter).catch(console.error);
     addedSubs.forEach(sgid => updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayUnion(voter.id) }).catch(console.error));
     removedSubs.forEach(sgid => updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayRemove(voter.id) }).catch(console.error));
+  };
+
+  const bulkUpdateVoters = (
+    ids: string[],
+    changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string }
+  ) => {
+    if (!ids.length) return;
+    const idSet = new Set(ids);
+    const { statusId, hasVoted, addToGroupId } = changes;
+    const hasStatus = statusId !== undefined;
+    const hasVotedChange = hasVoted !== undefined;
+
+    setState((s) => {
+      const voters = s.voters.map((v) => {
+        if (!idSet.has(v.id)) return v;
+        const next: Voter = { ...v };
+        if (hasStatus) next.statusId = statusId;
+        if (hasVotedChange) next.hasVoted = hasVoted;
+        if (addToGroupId && !v.groupIds.includes(addToGroupId)) {
+          next.groupIds = [...v.groupIds, addToGroupId];
+        }
+        return next;
+      });
+      const groups = addToGroupId
+        ? s.groups.map((g) =>
+            g.id === addToGroupId
+              ? { ...g, voterIds: Array.from(new Set([...g.voterIds, ...ids])) }
+              : g
+          )
+        : s.groups;
+      return { ...s, voters, groups };
+    });
+
+    // Persist to Firestore in batches (max 500 writes per batch)
+    const voterFieldUpdate: Partial<Voter> = {};
+    if (hasStatus) voterFieldUpdate.statusId = statusId;
+    if (hasVotedChange) voterFieldUpdate.hasVoted = hasVoted;
+
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));
+
+    chunks.forEach((group) => {
+      const batch = writeBatch(db);
+      group.forEach((vid) => {
+        const ref = doc(db, "voters", vid);
+        if (Object.keys(voterFieldUpdate).length > 0) {
+          batch.update(ref, voterFieldUpdate as Record<string, unknown>);
+        }
+        if (addToGroupId) {
+          batch.update(ref, { groupIds: arrayUnion(addToGroupId) });
+        }
+      });
+      batch.commit().catch(console.error);
+    });
+
+    if (addToGroupId) {
+      updateDoc(doc(db, "groups", addToGroupId), {
+        voterIds: arrayUnion(...ids),
+      }).catch(console.error);
+    }
   };
 
   const deleteVoter = (id: string) => {
@@ -608,6 +672,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loading,
         addVoter,
         updateVoter,
+        bulkUpdateVoters,
         deleteVoter,
         importVoters,
         addGroup,
