@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shield, ArrowRight, Mail } from "lucide-react";
+import { ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
 
 export default function ForgotPasswordPage() {
@@ -61,23 +61,8 @@ export default function ForgotPasswordPage() {
       >
         {/* Logo */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 32 }}>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              borderRadius: 18,
-              background: "linear-gradient(135deg, #209dd7, #753991)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginBottom: 16,
-              boxShadow: "0 8px 24px rgba(32,157,215,0.35)",
-            }}
-          >
-            <Shield size={30} color="#fff" />
-          </div>
-          <div style={{ fontWeight: 800, fontSize: 22, color: "#032147" }}>מערכת ניהול בחירות</div>
-          <div style={{ color: "#64748b", fontSize: 14, marginTop: 6 }}>שכחת סיסמה</div>
+          <img src="/logo.svg" alt="Voters4U" style={{ height: 72, width: "auto", marginBottom: 12 }} />
+          <div style={{ color: "#64748b", fontSize: 14, marginTop: 4 }}>שכחת סיסמה</div>
         </div>
 
         {sent ? (
