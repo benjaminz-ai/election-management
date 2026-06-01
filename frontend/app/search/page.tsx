@@ -67,8 +67,20 @@ export default function SearchPage() {
   const [divisionId, setDivisionId] = useState("");
   const [subGroupId, setSubGroupId] = useState("");
   const [city, setCity] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
   const [filterVoted, setFilterVoted] = useState<VotedFilter>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // Read filters passed from the reports screen (category / voted) on mount
+  useEffect(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const cat = p.get("category");
+      const voted = p.get("voted");
+      if (cat) { setCategoryFilter(cat); setFiltersOpen(true); }
+      if (voted === "yes" || voted === "no") { setFilterVoted(voted); setFiltersOpen(true); }
+    } catch {}
+  }, []);
 
   // ── Sorting ────────────────────────────────────────────────
   const [sortKey, setSortKey] = useState<SortKey>("lastName");
@@ -114,7 +126,7 @@ export default function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || filterVoted;
+    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || filterVoted;
     if (!hasAnyFilter) return [];
     return voters.filter((v) => {
       if (q) {
@@ -133,11 +145,12 @@ export default function SearchPage() {
         return lid && divisionByLeaderId[lid] === divisionId;
       })) return false;
       if (city && v.address.city !== city) return false;
+      if (categoryFilter && (statusMap.get(v.statusId ?? "")?.category ?? "neutral") !== categoryFilter) return false;
       if (filterVoted === "yes" && !v.hasVoted) return false;
       if (filterVoted === "no" && v.hasVoted) return false;
       return true;
     });
-  }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, filterVoted, leaderByGroupId, divisionByLeaderId]);
+  }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, filterVoted, leaderByGroupId, divisionByLeaderId, statusMap]);
 
   const results = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -186,11 +199,11 @@ export default function SearchPage() {
 
   const activeFilterCount =
     (statusId ? 1 : 0) + (groupId ? 1 : 0) + (leaderId ? 1 : 0) +
-    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (filterVoted ? 1 : 0);
+    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (filterVoted ? 1 : 0);
 
   const resetFilters = () => {
     setQuery(""); setStatusId(""); setGroupId(""); setLeaderId("");
-    setDivisionId(""); setSubGroupId(""); setCity(""); setFilterVoted("");
+    setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setFilterVoted("");
     setSelected(new Set());
   };
 
@@ -331,6 +344,13 @@ export default function SearchPage() {
         {filtersOpen && (
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+              <FilterSelect label="קטגוריה" value={categoryFilter} onChange={setCategoryFilter}
+                options={[
+                  { value: "supporter", label: "תומך" },
+                  { value: "opponent", label: "מתנגד" },
+                  { value: "undecided", label: "מתלבט" },
+                  { value: "neutral", label: "לא רלוונטי" },
+                ]} />
               <FilterSelect label="סטטוס" value={statusId} onChange={setStatusId}
                 options={statuses.map((s) => ({ value: s.id, label: s.name }))} />
               <FilterSelect label="קבוצה" value={groupId} onChange={setGroupId}

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Voter, Status } from "@/types";
@@ -11,7 +12,7 @@ type VoterSortKey = "lastName" | "firstName" | "phone" | "city" | "status";
 const PAGE_SIZE = 50;
 
 interface StatusBreakdown { [k: string]: { count: number; color: string; category: string }; }
-interface Stats { breakdown: StatusBreakdown; total: number; supporters: number; opponents: number; undecided: number; voted: number; }
+interface Stats { breakdown: StatusBreakdown; total: number; supporters: number; opponents: number; undecided: number; neutral: number; voted: number; }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 function SortBtn({ field, current, dir, onSort }: { field: VoterSortKey; current: VoterSortKey; dir: SortDir; onSort: (f: VoterSortKey) => void }) {
@@ -62,9 +63,12 @@ function VotingBar({ voted, total }: { voted: number; total: number }) {
   );
 }
 
-function SummaryCard({ label, value, color, icon }: { label: string; value: number; color: string; icon: React.ReactNode }) {
+function SummaryCard({ label, value, color, icon, onClick }: { label: string; value: number; color: string; icon: React.ReactNode; onClick?: () => void }) {
   return (
-    <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
+    <div className="card" onClick={onClick}
+      style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", cursor: onClick ? "pointer" : "default", transition: "box-shadow 0.15s, transform 0.15s" }}
+      onMouseEnter={(e) => { if (onClick) { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.10)"; e.currentTarget.style.transform = "translateY(-1px)"; } }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ""; e.currentTarget.style.transform = ""; }}>
       <div style={{ background: color + "22", borderRadius: 10, padding: 10, color, flexShrink: 0 }}>{icon}</div>
       <div>
         <div style={{ fontSize: 22, fontWeight: 700, color: "var(--dark-navy)" }}>{value.toLocaleString()}</div>
@@ -229,8 +233,14 @@ function VoterListTable({ voters, statuses, emptyText }: { voters: Voter[]; stat
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
+  const router = useRouter();
   const { state } = useStore();
   const { voters, groups, groupLeaders, divisionHeads, statuses } = state;
+
+  const goToSearch = (params: Record<string, string>) => {
+    const qs = new URLSearchParams(params).toString();
+    router.push(`/search?${qs}`);
+  };
 
   const [activeReport, setActiveReport] = useState<ReportKey>(null);
   const [reportLoading, setReportLoading] = useState(false);
@@ -255,7 +265,7 @@ export default function ReportsPage() {
 
   function buildStats(voterList: Voter[]): Stats {
     const breakdown: StatusBreakdown = {};
-    let supporters = 0, opponents = 0, undecided = 0, voted = 0;
+    let supporters = 0, opponents = 0, undecided = 0, neutral = 0, voted = 0;
     for (const v of voterList) {
       const st = v.statusId ? statusMap.get(v.statusId) : null;
       const name = st?.name ?? "ללא סטטוס";
@@ -266,9 +276,10 @@ export default function ReportsPage() {
       if (cat === "supporter") supporters++;
       else if (cat === "opponent") opponents++;
       else if (cat === "undecided") undecided++;
+      else neutral++;
       if (v.hasVoted) voted++;
     }
-    return { breakdown, total: voterList.length, supporters, opponents, undecided, voted };
+    return { breakdown, total: voterList.length, supporters, opponents, undecided, neutral, voted };
   }
 
   const allStats = buildStats(voters);
@@ -342,13 +353,21 @@ export default function ReportsPage() {
         <p style={{ color: "#64748b", marginTop: 4, fontSize: 14 }}>לחץ "הפק דוח" לדוח דינמי בזמן אמת</p>
       </div>
 
-      {/* Summary */}
-      <div className="resp-grid-5" style={{ marginBottom: 24 }}>
+      {/* Summary — click a category to view those voters in search */}
+      <div className="resp-grid-6" style={{ marginBottom: 24 }}>
         <SummaryCard label="סך מצביעים" value={allStats.total} color="#3b82f6" icon={<Users size={18} />} />
-        <SummaryCard label="תומכים" value={allStats.supporters} color="#22c55e" icon={<Tag size={18} />} />
-        <SummaryCard label="מתנגדים" value={allStats.opponents} color="#ef4444" icon={<Tag size={18} />} />
-        <SummaryCard label="מתלבטים" value={allStats.undecided} color="#f59e0b" icon={<Tag size={18} />} />
-        <div className="card" style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px" }}>
+        <SummaryCard label="תומכים" value={allStats.supporters} color="#22c55e" icon={<Tag size={18} />}
+          onClick={() => goToSearch({ category: "supporter" })} />
+        <SummaryCard label="מתנגדים" value={allStats.opponents} color="#ef4444" icon={<Tag size={18} />}
+          onClick={() => goToSearch({ category: "opponent" })} />
+        <SummaryCard label="מתלבטים" value={allStats.undecided} color="#f59e0b" icon={<Tag size={18} />}
+          onClick={() => goToSearch({ category: "undecided" })} />
+        <SummaryCard label="לא רלוונטי" value={allStats.neutral} color="#94a3b8" icon={<Tag size={18} />}
+          onClick={() => goToSearch({ category: "neutral" })} />
+        <div className="card" onClick={() => goToSearch({ voted: "yes" })}
+          style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s" }}
+          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.10)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ""; e.currentTarget.style.transform = ""; }}>
           <div style={{ background: "#22c55e22", borderRadius: 10, padding: 10, color: "#22c55e", flexShrink: 0 }}><Vote size={18} /></div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 20, fontWeight: 700, color: "var(--dark-navy)" }}>{totalVoted} <span style={{ fontSize: 13, color: "#64748b", fontWeight: 400 }}>/ {allStats.total}</span></div>
@@ -575,10 +594,10 @@ export default function ReportsPage() {
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        .resp-grid-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 14px; }
-        @media (max-width: 1024px) { .resp-grid-5 { grid-template-columns: repeat(3,1fr); } }
-        @media (max-width: 768px) { .resp-grid-5 { grid-template-columns: repeat(2,1fr); } }
-        @media (max-width: 480px) { .resp-grid-5 { grid-template-columns: 1fr; } }
+        .resp-grid-6 { display: grid; grid-template-columns: repeat(6,1fr); gap: 14px; }
+        @media (max-width: 1280px) { .resp-grid-6 { grid-template-columns: repeat(3,1fr); } }
+        @media (max-width: 768px) { .resp-grid-6 { grid-template-columns: repeat(2,1fr); } }
+        @media (max-width: 480px) { .resp-grid-6 { grid-template-columns: 1fr; } }
       `}</style>
     </div>
   );
