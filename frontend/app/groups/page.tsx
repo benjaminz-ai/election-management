@@ -88,7 +88,11 @@ export default function GroupsPage() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 16 }}>
         {visibleGroups.map((g) => {
           const gl = groupLeaders.find((l) => l.id === g.groupLeaderId);
-          const groupVoters = voters.filter((v) => g.voterIds.includes(v.id));
+          // Count voters directly in group OR in any subgroup of this group
+          const groupVoters = voters.filter((v) =>
+            v.groupIds.includes(g.id) ||
+            (v.subGroupIds ?? []).some(sgid => subGroups.find(sg => sg.id === sgid)?.parentGroupId === g.id)
+          );
           const groupSubGroups = subGroups.filter((sg) => sg.parentGroupId === g.id);
           const isOrphan = !g.groupLeaderId;
           const isExpanded = expandedGroups.has(g.id);
