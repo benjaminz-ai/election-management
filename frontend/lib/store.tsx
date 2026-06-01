@@ -8,17 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
-import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, ConversationLog, AppUser } from "@/types";
-import {
-  initialVoters,
-  initialGroups,
-  initialGroupLeaders,
-  initialDivisionHeads,
-  initialStatuses,
-  initialCallStatuses,
-  initialConversationLogs,
-  initialUsers,
-} from "@/data/dummy";
+import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, AppUser } from "@/types";
 import { db } from "@/lib/firebase";
 import {
   collection,
@@ -81,21 +71,7 @@ const EMPTY_STATE: AppState = {
   users: [],
 };
 
-async function seedFirestore(data: AppState) {
-  const batch = writeBatch(db);
-  data.voters.forEach((v) => batch.set(doc(db, "voters", v.id), v));
-  data.groups.forEach((g) => batch.set(doc(db, "groups", g.id), g));
-  data.subGroups.forEach((sg) => batch.set(doc(db, "subGroups", sg.id), sg));
-  data.groupLeaders.forEach((gl) => batch.set(doc(db, "groupLeaders", gl.id), gl));
-  data.divisionHeads.forEach((dh) => batch.set(doc(db, "divisionHeads", dh.id), dh));
-  data.statuses.forEach((s) => batch.set(doc(db, "statuses", s.id), s));
-  data.callStatuses.forEach((cs) => batch.set(doc(db, "callStatuses", cs.id), cs));
-  data.users.forEach((u) => batch.set(doc(db, "users", u.id), u));
-  initialConversationLogs.forEach((cl) => batch.set(doc(db, "conversationLogs", cl.id), cl));
-  await batch.commit();
-}
-
-async function loadFromFirestore(): Promise<AppState | null> {
+async function loadFromFirestore(): Promise<AppState> {
   const [votersSnap, groupsSnap, subGroupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap] =
     await Promise.all([
       getDocs(collection(db, "voters")),
@@ -117,18 +93,15 @@ async function loadFromFirestore(): Promise<AppState | null> {
   const callStatuses = callStatusesSnap.docs.map((d: { data(): unknown }) => d.data() as CallStatus);
   const users = usersSnap.docs.map((d: { data(): unknown }) => d.data() as AppUser);
 
-  if (voters.length === 0 && groups.length === 0 && groupLeaders.length === 0) {
-    return null;
-  }
   return {
     voters,
     groups,
     subGroups,
     groupLeaders,
     divisionHeads,
-    statuses: statuses.length > 0 ? statuses : initialStatuses,
-    callStatuses: callStatuses.length > 0 ? callStatuses : initialCallStatuses,
-    users: users.length > 0 ? users : initialUsers,
+    statuses,
+    callStatuses,
+    users,
   };
 }
 
@@ -141,41 +114,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
+        // Load whatever exists in Firestore. No demo data is ever seeded.
         const loaded = await loadFromFirestore();
-        if (loaded) {
-          setState(loaded);
-          // If users collection was not yet seeded (old data), seed it now
-          if (loaded.users.length === 0 || loaded.users === initialUsers) {
-            const batch = writeBatch(db);
-            initialUsers.forEach((u) => batch.set(doc(db, "users", u.id), u));
-            batch.commit().catch(console.error);
-          }
-        } else {
-          const seed: AppState = {
-            voters: initialVoters,
-            groups: initialGroups,
-            subGroups: [],
-            groupLeaders: initialGroupLeaders,
-            divisionHeads: initialDivisionHeads,
-            statuses: initialStatuses,
-            callStatuses: initialCallStatuses,
-            users: initialUsers,
-          };
-          await seedFirestore(seed);
-          setState(seed);
-        }
+        setState(loaded);
       } catch (e) {
-        console.error("Firestore load failed, falling back to dummy data", e);
-        setState({
-          voters: initialVoters,
-            groups: initialGroups,
-            subGroups: [],
-          groupLeaders: initialGroupLeaders,
-          divisionHeads: initialDivisionHeads,
-          statuses: initialStatuses,
-          callStatuses: initialCallStatuses,
-          users: initialUsers,
-        });
+        console.error("Firestore load failed", e);
+        setState(EMPTY_STATE);
       } finally {
         setLoading(false);
       }
