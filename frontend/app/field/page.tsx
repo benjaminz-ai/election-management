@@ -150,6 +150,24 @@ export default function FieldPage() {
         </div>
       </div>
 
+      {/* Voting rate — for the user's own people */}
+      {stats.total > 0 && (
+        <div style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 14, padding: "16px 18px", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#032147" }}>שיעור הצבעה עבורך</span>
+            <span style={{ fontSize: 22, fontWeight: 800, color: "#209dd7" }}>
+              {Math.round((stats.voted / stats.total) * 100)}%
+            </span>
+          </div>
+          <div style={{ height: 10, borderRadius: 6, background: "#eef1f5", overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${Math.round((stats.voted / stats.total) * 100)}%`, background: "linear-gradient(90deg,#209dd7,#16a34a)", borderRadius: 6, transition: "width 0.3s" }} />
+          </div>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 8 }}>
+            {stats.voted} מתוך {stats.total} מהאנשים שלך הצביעו
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
         <div style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "12px", textAlign: "center" }}>
