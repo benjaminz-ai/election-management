@@ -103,14 +103,25 @@ export default function EnrollMfaPage() {
           </div>
         ) : step === "phone" ? (
           <form onSubmit={sendCode}>
-            <label className="label">מספר טלפון לקבלת קודים</label>
-            <input className="input" type="tel" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)}
-              placeholder="+9725XXXXXXXX" required style={{ textAlign: "left", marginBottom: 6 }} />
-            <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 18 }}>המספר נלקח מהפרופיל שלך — ניתן לתקן במידת הצורך.</div>
-            {error && <div style={errBox}>{error}</div>}
-            <button type="submit" disabled={busy} style={btn}>
-              {busy ? <Loader2 size={15} className="spin" style={{ verticalAlign: "middle" }} /> : "שלח קוד"}
-            </button>
+            <label className="label">מספר הטלפון לקבלת קודים</label>
+            {phone ? (
+              <>
+                <div dir="ltr" style={{ textAlign: "center", fontSize: 18, fontWeight: 700, color: "#032147", background: "#f6f8fb", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px", marginBottom: 6 }}>
+                  {phone}
+                </div>
+                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 18 }}>
+                  המספר נקבע על ידי מנהל המערכת ואינו ניתן לשינוי. אם הוא שגוי — פנה למנהל לעדכון.
+                </div>
+                {error && <div style={errBox}>{error}</div>}
+                <button type="submit" disabled={busy} style={btn}>
+                  {busy ? <Loader2 size={15} className="spin" style={{ verticalAlign: "middle" }} /> : "שלח קוד"}
+                </button>
+              </>
+            ) : (
+              <div style={errBox}>
+                לא משויך לחשבונך מספר טלפון. פנה למנהל המערכת כדי שיגדיר עבורך מספר, ואז תוכל להפעיל אימות דו-שלבי.
+              </div>
+            )}
           </form>
         ) : (
           <form onSubmit={verifyAndEnroll}>
