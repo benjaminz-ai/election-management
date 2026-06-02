@@ -384,7 +384,7 @@ export default function UsersPage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
               <button className="btn-icon" onClick={() => openEdit(u)} style={{ minWidth: 36, minHeight: 36 }}><Pencil size={13} /></button>
-              <button className="btn-icon" onClick={() => handleFreeze(u)} style={{ minWidth: 36, minHeight: 36, color: u.isFrozen ? "#22c55e" : "#f59e0b" }} title={u.isFrozen ? "הסר הקפאה" : "הקפא"}><Snowflake size={13} /></button>
+              <button className="btn-icon" onClick={() => handleFreeze(u)} disabled={u.id === currentUser?.id} style={{ minWidth: 36, minHeight: 36, color: u.isFrozen ? "#22c55e" : "#f59e0b", opacity: u.id === currentUser?.id ? 0.3 : 1, cursor: u.id === currentUser?.id ? "not-allowed" : "pointer" }} title={u.id === currentUser?.id ? "לא ניתן להקפיא את עצמך" : (u.isFrozen ? "הסר הקפאה" : "הקפא")}><Snowflake size={13} /></button>
             </div>
           </div>
         ))}
