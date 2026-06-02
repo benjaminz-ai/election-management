@@ -4,7 +4,9 @@ import { useEffect, useState, ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
-import { canAccess, homePath } from "@/lib/permissions";
+import { canAccess, homePath, MFA_ENFORCED, mfaRequiredForRole } from "@/lib/permissions";
+import { auth } from "@/lib/firebase";
+import { multiFactor } from "firebase/auth";
 import Sidebar from "@/components/layout/Sidebar";
 import LoadingWrapper from "@/components/layout/LoadingWrapper";
 import { Menu } from "lucide-react";
@@ -36,6 +38,18 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!loading && currentUser && !isPublicPage && !canAccess(currentUser.role, pathname)) {
       router.replace(homePath(currentUser.role));
+    }
+  }, [loading, currentUser, isPublicPage, pathname, router]);
+
+  // Two-factor enforcement: once turned on, users whose role requires MFA and
+  // who have not enrolled a second factor are sent to the enrollment screen.
+  useEffect(() => {
+    if (!MFA_ENFORCED || loading || !currentUser || isPublicPage) return;
+    if (pathname === "/enroll-mfa") return;
+    if (!mfaRequiredForRole(currentUser.role)) return;
+    const fbUser = auth.currentUser;
+    if (fbUser && multiFactor(fbUser).enrolledFactors.length === 0) {
+      router.replace("/enroll-mfa");
     }
   }, [loading, currentUser, isPublicPage, pathname, router]);
 

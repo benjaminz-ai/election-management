@@ -8,7 +8,7 @@ import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const { login, currentUser } = useAuth();
+  const { login, completeMfa, currentUser } = useAuth();
   const { loading: storeLoading } = useStore();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -16,6 +16,8 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mfaStep, setMfaStep] = useState(false);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
     if (currentUser) router.replace("/dashboard");
@@ -29,6 +31,8 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (result === "ok") {
         router.replace("/dashboard");
+      } else if (result === "mfa") {
+        setMfaStep(true);
       } else if (result === "frozen") {
         setError("חשבון זה הוקפא. פנה למנהל המערכת.");
       } else {
@@ -36,6 +40,26 @@ export default function LoginPage() {
       }
     } catch {
       setError("שגיאה בהתחברות. נסה שנית.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const result = await completeMfa(code.trim());
+      if (result === "ok") {
+        router.replace("/dashboard");
+      } else if (result === "frozen") {
+        setError("חשבון זה הוקפא. פנה למנהל המערכת.");
+      } else {
+        setError("הקוד שגוי או שפג תוקפו. נסה שנית.");
+      }
+    } catch {
+      setError("שגיאה באימות הקוד. נסה שנית.");
     } finally {
       setLoading(false);
     }
@@ -68,6 +92,7 @@ export default function LoginPage() {
           <div style={{ color: "#64748b", fontSize: 14, marginTop: 4 }}>כניסה למערכת</div>
         </div>
 
+        {!mfaStep && (
         <form onSubmit={handleSubmit}>
           {/* Email */}
           <div style={{ marginBottom: 18 }}>
@@ -165,6 +190,47 @@ export default function LoginPage() {
             {loading ? "מתחבר..." : "כניסה למערכת"}
           </button>
         </form>
+        )}
+
+        {mfaStep && (
+        <form onSubmit={handleMfa}>
+          <div style={{ marginBottom: 18, textAlign: "center", color: "#475569", fontSize: 14, lineHeight: 1.6 }}>
+            שלחנו קוד אימות ב-SMS לטלפון שלך.<br />הזן אותו כדי להשלים את הכניסה.
+          </div>
+          <div style={{ marginBottom: 18 }}>
+            <label className="label">קוד אימות</label>
+            <input
+              className="input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              placeholder="● ● ● ● ● ●"
+              required
+              dir="ltr"
+              style={{ textAlign: "center", letterSpacing: 6, fontSize: 18 }}
+            />
+          </div>
+
+          {error && (
+            <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 18, textAlign: "center" }}>
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{ width: "100%", padding: "13px", background: loading ? "#93c5fd" : "linear-gradient(135deg, #209dd7, #1a7fad)", color: "#fff", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 4px 14px rgba(32,157,215,0.3)" }}
+          >
+            {loading ? "מאמת..." : "אישור והתחברות"}
+          </button>
+        </form>
+        )}
+
+        {/* Invisible reCAPTCHA container required by Firebase phone MFA */}
+        <div id="recaptcha-container" />
       </div>
     </div>
   );

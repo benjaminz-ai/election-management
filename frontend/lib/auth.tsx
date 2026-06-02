@@ -1,22 +1,29 @@
 "use client";
 
 import React, { createContext, useContext, useState, useRef, useCallback, useMemo, useEffect, ReactNode } from "react";
-import { signInWithEmailAndPassword, signOut } from "firebase/auth";
+import {
+  signInWithEmailAndPassword, signOut,
+  getMultiFactorResolver, PhoneAuthProvider, PhoneMultiFactorGenerator,
+  RecaptchaVerifier, type MultiFactorResolver,
+} from "firebase/auth";
 import { auth as fbAuth } from "./firebase";
 import { useStore } from "./store";
 import { AppUser } from "@/types";
 
-export type LoginResult = "ok" | "frozen" | "invalid";
+export type LoginResult = "ok" | "frozen" | "invalid" | "mfa";
 
 type AuthCtx = {
   currentUser: AppUser | null;
   login: (email: string, password: string) => Promise<LoginResult>;
+  // Completes a login that returned "mfa", using the SMS code the user received.
+  completeMfa: (code: string) => Promise<LoginResult>;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthCtx>({
   currentUser: null,
   login: async () => "invalid",
+  completeMfa: async () => "invalid",
   logout: () => {},
 });
 
@@ -59,6 +66,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUsersRef = useRef(refreshUsers);
   refreshUsersRef.current = refreshUsers;
+
+  // Holds the in-progress MFA challenge between login() and completeMfa().
+  const mfaRef = useRef<{ resolver: MultiFactorResolver; verificationId: string } | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -151,9 +161,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profile?.isFrozen) { await signOut(fbAuth); return "frozen"; }
       startSession(profile?.id ?? uid);
       return "ok";
-    } catch {
+    } catch (e: unknown) {
+      // ── Two-factor required: send the SMS and ask the page for the code ──────
+      if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
+        try {
+          const resolver = getMultiFactorResolver(fbAuth, e as Parameters<typeof getMultiFactorResolver>[1]);
+          const verifier = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
+          const phoneProvider = new PhoneAuthProvider(fbAuth);
+          const verificationId = await phoneProvider.verifyPhoneNumber(
+            { multiFactorHint: resolver.hints[0], session: resolver.session },
+            verifier
+          );
+          mfaRef.current = { resolver, verificationId };
+          return "mfa";
+        } catch {
+          return "invalid";
+        }
+      }
       // ── Fallback: legacy Firestore check (transition safety net) ────────────
-      // Ensures nobody is locked out if Firebase Auth fails for any reason.
       const user = users.find((u) => u.email.toLowerCase() === normalizedEmail && u.password === password);
       if (!user) return "invalid";
       if (user.isFrozen) return "frozen";
@@ -162,6 +187,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []); // stable — reads via refs
 
+  const completeMfa = useCallback(async (code: string): Promise<LoginResult> => {
+    const ctx = mfaRef.current;
+    if (!ctx) return "invalid";
+    try {
+      const cred = PhoneAuthProvider.credential(ctx.verificationId, code);
+      const assertion = PhoneMultiFactorGenerator.assertion(cred);
+      const userCred = await ctx.resolver.resolveSignIn(assertion);
+      mfaRef.current = null;
+      const uid = userCred.user.uid;
+      await refreshUsersRef.current();
+      const users = usersRef.current;
+      const profile = users.find((u) => u.id === uid)
+        ?? users.find((u) => u.email.toLowerCase() === (userCred.user.email || "").toLowerCase());
+      if (profile?.isFrozen) { await signOut(fbAuth); return "frozen"; }
+      startSession(profile?.id ?? uid);
+      return "ok";
+    } catch {
+      return "invalid";
+    }
+  }, []);
+
   const logout = useCallback(() => {
     setCurrentUserId(null);
     clearSession();
@@ -169,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, logout }}>
+    <AuthContext.Provider value={{ currentUser, login, completeMfa, logout }}>
       {children}
     </AuthContext.Provider>
   );

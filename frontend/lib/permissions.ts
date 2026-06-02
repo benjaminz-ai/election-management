@@ -6,7 +6,19 @@ const FIELD_ROLES: UserRole[] = ["field", "group_leader", "division_head"];
 
 // Screens a field-type user may reach. They get ONLY the read-only
 // "my people" screen — no telemarketing (editing) and no global search.
-const FIELD_ALLOWED = ["/field"];
+// ("/enroll-mfa" is always reachable so anyone can set up two-factor.)
+const FIELD_ALLOWED = ["/field", "/enroll-mfa"];
+
+// ── Two-factor (SMS MFA) rollout ──────────────────────────────────────────────
+// Set to true ONLY after the flow is verified end-to-end (so we never lock
+// users out). When true, users whose role requires MFA and who have not yet
+// enrolled a second factor are redirected to /enroll-mfa.
+export const MFA_ENFORCED = false;
+
+// Which roles must use two-factor. Currently: everyone with an account.
+export function mfaRequiredForRole(_role?: UserRole | null): boolean {
+  return true;
+}
 
 export function isFieldRole(role?: UserRole | null): boolean {
   return !!role && FIELD_ROLES.includes(role);
