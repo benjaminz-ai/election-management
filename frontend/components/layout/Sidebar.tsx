@@ -131,7 +131,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         )}
 
         {/* Nav */}
-        <nav style={{ flex: 1, paddingTop: 6, overflowY: "auto", overflowX: "hidden" }}>
+        <nav className="sidebar-nav" style={{ flex: 1, paddingTop: 6, overflowY: "auto", overflowX: "hidden" }}>
           {links.map(({ href, label, icon: Icon }) => {
             const active = pathname === href || pathname.startsWith(href + "/");
             return (
