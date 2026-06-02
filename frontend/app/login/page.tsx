@@ -72,7 +72,7 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (result === "mfa") { setResent(true); setCode(""); }
       else if (result === "ok") { router.replace("/dashboard"); }
-      else { setError("שליחת קוד חדש נכשלה. התחבר מחדש."); }
+      else { setError("שליחת קוד חדש נכשלה. נסה שוב בעוד מספר שניות."); }
     } catch {
       setError("שגיאה בשליחת קוד חדש.");
     } finally {

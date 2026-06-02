@@ -42,9 +42,12 @@ export default function EnrollMfaPage() {
       const user = auth.currentUser;
       if (!user) { router.replace("/login"); return; }
       const e164 = toE164Israel(phone);
-      if (verifierRef.current) { try { verifierRef.current.clear(); } catch {} }
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-      verifierRef.current = verifier;
+      // Create the invisible reCAPTCHA once and reuse it (it cannot be
+      // re-rendered in the same element), so "resend" works.
+      if (!verifierRef.current) {
+        verifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+      }
+      const verifier = verifierRef.current;
       const session = await multiFactor(user).getSession();
       const provider = new PhoneAuthProvider(auth);
       const id = await provider.verifyPhoneNumber({ phoneNumber: e164, session }, verifier);

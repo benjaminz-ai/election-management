@@ -57,6 +57,17 @@ function clearSession() {
   localStorage.removeItem(ACTIVITY_KEY);
 }
 
+// A single reusable invisible reCAPTCHA for the login MFA flow. reCAPTCHA must
+// not be re-rendered in the same element, so we create it once and reuse it for
+// both the first code and any "resend".
+let loginRecaptcha: RecaptchaVerifier | null = null;
+function getLoginRecaptcha(): RecaptchaVerifier {
+  if (!loginRecaptcha) {
+    loginRecaptcha = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
+  }
+  return loginRecaptcha;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { state, refreshUsers } = useStore();
 
@@ -165,15 +176,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ── Two-factor required: send the SMS and ask the page for the code ──────
       if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
         try {
-          if (mfaRef.current?.verifier) { try { mfaRef.current.verifier.clear(); } catch {} }
           const resolver = getMultiFactorResolver(fbAuth, e as Parameters<typeof getMultiFactorResolver>[1]);
-          const verifier = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
+          const verifier = getLoginRecaptcha();
           const phoneProvider = new PhoneAuthProvider(fbAuth);
           const verificationId = await phoneProvider.verifyPhoneNumber(
             { multiFactorHint: resolver.hints[0], session: resolver.session },
             verifier
           );
-          mfaRef.current = { resolver, verificationId, verifier };
+          mfaRef.current = { resolver, verificationId };
           return "mfa";
         } catch {
           return "invalid";
