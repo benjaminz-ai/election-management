@@ -82,9 +82,6 @@ export default function EnrollMfaPage() {
             <ShieldCheck size={26} color="#fff" />
           </div>
           <h1 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: "#032147" }}>אימות דו-שלבי</h1>
-          <p style={{ margin: "6px 0 0", fontSize: 13, color: "#94a3b8", lineHeight: 1.6 }}>
-            הוספת שכבת אבטחה: בכל כניסה תתבקש קוד שיישלח ב-SMS.
-          </p>
         </div>
 
         {alreadyEnrolled ? (
