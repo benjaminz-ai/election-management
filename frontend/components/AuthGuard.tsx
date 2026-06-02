@@ -43,6 +43,10 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   if (loading) return <LoadingWrapper>{children}</LoadingWrapper>;
   if (!currentUser) return null;
 
+  // Hard block: never render a screen the role may not access, even for a
+  // single frame or via a direct URL. The effect above handles the redirect.
+  if (!canAccess(currentUser.role, pathname)) return null;
+
   return (
     <LoadingWrapper>
       <div style={{ display: "flex", height: "100vh" }}>

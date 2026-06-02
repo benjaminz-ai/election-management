@@ -4,9 +4,9 @@ import { UserRole } from "@/types";
 // They are restricted to a small set of screens (see FIELD_ALLOWED).
 const FIELD_ROLES: UserRole[] = ["field", "group_leader", "division_head"];
 
-// Screens a field-type user may reach. "/field" is their home (read-only
-// list of the voters assigned to them); telemarketing + search are extras.
-const FIELD_ALLOWED = ["/field", "/telemarketing", "/search"];
+// Screens a field-type user may reach. They get ONLY the read-only
+// "my people" screen — no telemarketing (editing) and no global search.
+const FIELD_ALLOWED = ["/field"];
 
 export function isFieldRole(role?: UserRole | null): boolean {
   return !!role && FIELD_ROLES.includes(role);
