@@ -65,6 +65,21 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
     return null;
   }
 
+  // The MFA enrollment screen is shown standalone (no sidebar/app chrome) —
+  // the user hasn't fully entered the system yet.
+  if (pathname === "/enroll-mfa") {
+    return <>{children}</>;
+  }
+
+  // A user who must use two-factor but hasn't enrolled yet may NOT see the app
+  // at all — render nothing while the effect above redirects them to /enroll-mfa.
+  if (MFA_ENFORCED && mfaRequiredForRole(currentUser.role)) {
+    const fbUser = auth.currentUser;
+    if (fbUser && multiFactor(fbUser).enrolledFactors.length === 0) {
+      return null;
+    }
+  }
+
   // Hard block: never render a screen the role may not access, even for a
   // single frame or via a direct URL. The effect above handles the redirect.
   if (!canAccess(currentUser.role, pathname)) {

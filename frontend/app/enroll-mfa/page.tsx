@@ -103,14 +103,12 @@ export default function EnrollMfaPage() {
           </div>
         ) : step === "phone" ? (
           <form onSubmit={sendCode}>
-            <label className="label">מספר הטלפון לקבלת קודים</label>
             {phone ? (
               <>
-                <div dir="ltr" style={{ textAlign: "center", fontSize: 18, fontWeight: 700, color: "#032147", background: "#f6f8fb", border: "1px solid #e2e8f0", borderRadius: 10, padding: "12px", marginBottom: 6 }}>
-                  {phone}
-                </div>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 18 }}>
-                  המספר נקבע על ידי מנהל המערכת ואינו ניתן לשינוי. אם הוא שגוי — פנה למנהל לעדכון.
+                <div style={{ fontSize: 14, color: "#475569", lineHeight: 1.7, marginBottom: 18, textAlign: "center" }}>
+                  נשלח אליך קוד אימות ב-SMS למספר הנייד הרשום שלך במערכת.
+                  <br />
+                  <span style={{ fontSize: 12, color: "#94a3b8" }}>אם אינך מקבל את הקוד — פנה למנהל המערכת לעדכון המספר.</span>
                 </div>
                 {error && <div style={errBox}>{error}</div>}
                 <button type="submit" disabled={busy} style={btn}>
