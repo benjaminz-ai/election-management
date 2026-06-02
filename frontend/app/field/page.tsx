@@ -10,8 +10,6 @@ import {
   Search, X, Phone, MapPin, Users, Clock, Loader2, CheckCircle2, Contact, Filter,
 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
-import ScrollSentinel from "@/components/ui/ScrollSentinel";
-import PaginationFooter from "@/components/ui/PaginationFooter";
 
 function buildAddress(v: Voter) {
   return [v.address.street, v.address.streetNumber, v.address.city].filter(Boolean).join(", ");
@@ -34,11 +32,10 @@ function formatDate(iso: string) {
 export default function FieldPage() {
   const { state } = useStore();
   const { currentUser } = useAuth();
-  const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses, callStatuses, users } = state;
+  const { voters, groups, groupLeaders, divisionHeads, statuses, callStatuses, users } = state;
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("");
-  const [subGroupFilter, setSubGroupFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [selected, setSelected] = useState<Voter | null>(null);
   const [logs, setLogs] = useState<ConversationLog[]>([]);
@@ -77,16 +74,6 @@ export default function FieldPage() {
 
   const myGroupIdSet = useMemo(() => new Set(myGroups.map((g) => g.id)), [myGroups]);
 
-  // Sub-groups that belong to the user's groups.
-  const mySubGroups = useMemo(
-    () => subGroups.filter((sg) => myGroupIdSet.has(sg.parentGroupId)),
-    [subGroups, myGroupIdSet]
-  );
-  const subGroupName = useCallback(
-    (id: string) => subGroups.find((sg) => sg.id === id)?.name ?? "",
-    [subGroups]
-  );
-
   // Voters assigned to this user (in any of their groups).
   const myVoters = useMemo(
     () => voters.filter((v) => v.groupIds.some((gid) => myGroupIdSet.has(gid))),
@@ -117,7 +104,6 @@ export default function FieldPage() {
   const filtered = useMemo(() => {
     let list = myVoters;
     if (groupFilter) list = list.filter((v) => v.groupIds.includes(groupFilter));
-    if (subGroupFilter) list = list.filter((v) => (v.subGroupIds ?? []).includes(subGroupFilter));
     if (categoryFilter) {
       list = list.filter((v) => {
         const cat = getStatus(v)?.category;
@@ -133,7 +119,7 @@ export default function FieldPage() {
       );
     }
     return list;
-  }, [myVoters, groupFilter, subGroupFilter, categoryFilter, search, getStatus]);
+  }, [myVoters, groupFilter, categoryFilter, search, getStatus]);
 
   // Paginate the filtered list (infinite scroll) so hundreds of voters stay snappy on mobile.
   const { visible: visibleVoters, hasMore, loadMore, showing, total } = usePagination(filtered);
@@ -159,6 +145,17 @@ export default function FieldPage() {
   }, [selected]);
 
   const groupName = (id: string) => groups.find((g) => g.id === id)?.name ?? "";
+  // The group leader of the voter's first group that has one.
+  const voterGroupLeaderName = (v: Voter) => {
+    for (const gid of v.groupIds) {
+      const g = groups.find((x) => x.id === gid);
+      if (g?.groupLeaderId) {
+        const gl = groupLeaders.find((l) => l.id === g.groupLeaderId);
+        if (gl) return `${gl.firstName} ${gl.lastName}`.trim();
+      }
+    }
+    return "";
+  };
   const callStatusName = (id: string) => callStatuses.find((c) => c.id === id)?.name ?? id;
   const statusName = (id: string) => statuses.find((s) => s.id === id)?.name ?? id;
   const userName = (id: string) => {
@@ -247,12 +244,20 @@ export default function FieldPage() {
         )}
       </div>
 
-      {/* Search */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "9px 12px", background: "#fff", marginBottom: 12 }}>
-        <Search size={16} color="#94a3b8" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="חפש בוחר בקבוצות שלי..."
-          style={{ flex: 1, border: "none", outline: "none", fontSize: 14, background: "transparent", color: "#374151" }} />
-        {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", display: "flex", padding: 0 }}><X size={15} /></button>}
+      {/* Sticky header: stays in view while scrolling — compact summary + search */}
+      <div style={{ position: "sticky", top: 0, zIndex: 10, background: "#fff", border: "1px solid #eef1f5", borderRadius: 14, padding: "12px 14px", marginBottom: 12, boxShadow: "0 4px 14px rgba(3,33,71,0.08)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: "#475569", fontWeight: 600 }}>{stats.total} בוחרים</span>
+          <span style={{ fontSize: 12, color: "#209dd7", fontWeight: 700 }}>
+            {stats.total ? Math.round((stats.voted / stats.total) * 100) : 0}% הצביעו
+          </span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "9px 12px", background: "#fff" }}>
+          <Search size={16} color="#94a3b8" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="חפש בוחר בקבוצות שלי..."
+            style={{ flex: 1, border: "none", outline: "none", fontSize: 14, background: "transparent", color: "#374151" }} />
+          {search && <button onClick={() => setSearch("")} style={{ background: "none", border: "none", cursor: "pointer", color: "#94a3b8", display: "flex", padding: 0 }}><X size={15} /></button>}
+        </div>
       </div>
 
       {/* Group filter chips */}
@@ -264,34 +269,13 @@ export default function FieldPage() {
             הכל
           </button>
           {myGroups.map((g) => (
-            <button key={g.id} onClick={() => { setGroupFilter(g.id); setSubGroupFilter(""); }}
+            <button key={g.id} onClick={() => setGroupFilter(g.id)}
               style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: groupFilter === g.id ? "#032147" : "#eef1f5", color: groupFilter === g.id ? "#fff" : "#475569" }}>
               {g.name}
             </button>
           ))}
         </div>
       )}
-
-      {/* Sub-group filter chips */}
-      {(() => {
-        const visibleSubs = groupFilter ? mySubGroups.filter((sg) => sg.parentGroupId === groupFilter) : mySubGroups;
-        if (visibleSubs.length === 0) return null;
-        return (
-          <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
-            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>תת-קבוצה:</span>
-            <button onClick={() => setSubGroupFilter("")}
-              style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: subGroupFilter === "" ? "#753991" : "#f3eef7", color: subGroupFilter === "" ? "#fff" : "#753991" }}>
-              הכל
-            </button>
-            {visibleSubs.map((sg) => (
-              <button key={sg.id} onClick={() => setSubGroupFilter(sg.id)}
-                style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: subGroupFilter === sg.id ? "#753991" : "#f3eef7", color: subGroupFilter === sg.id ? "#fff" : "#753991" }}>
-                {sg.name}
-              </button>
-            ))}
-          </div>
-        );
-      })()}
 
       {/* List */}
       {myVoters.length === 0 ? (
@@ -322,9 +306,9 @@ export default function FieldPage() {
                   <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {v.groupIds.map(groupName).filter(Boolean).join(" · ") || buildAddress(v)}
                   </div>
-                  {(v.subGroupIds ?? []).length > 0 && (
+                  {voterGroupLeaderName(v) && (
                     <div style={{ fontSize: 10, color: "#753991", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
-                      {(v.subGroupIds ?? []).map(subGroupName).filter(Boolean).join(" · ")}
+                      ראש קבוצה: {voterGroupLeaderName(v)}
                     </div>
                   )}
                 </div>
@@ -342,8 +326,17 @@ export default function FieldPage() {
               </div>
             );
           })}
-          {hasMore && <ScrollSentinel onIntersect={loadMore} />}
-          <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
+          <div style={{ padding: "14px 8px 4px", textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: "#64748b", marginBottom: hasMore ? 10 : 0 }}>
+              מציג <strong style={{ color: "#032147" }}>{showing}</strong> מתוך <strong style={{ color: "#032147" }}>{total}</strong> בוחרים
+            </div>
+            {hasMore && (
+              <button onClick={loadMore}
+                style={{ padding: "9px 24px", borderRadius: 10, border: "1px solid #d3def0", background: "#fff", color: "#032147", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                טען עוד {Math.min(10, total - showing)} ↓
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -397,11 +390,6 @@ export default function FieldPage() {
                   {selected.groupIds.map((gid) => groupName(gid)).filter(Boolean).map((name, i) => (
                     <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 11, background: "rgba(32,157,215,0.09)", color: "#0e6fa0", fontWeight: 500 }}>
                       <Users size={10} /> {name}
-                    </span>
-                  ))}
-                  {(selected.subGroupIds ?? []).map((sid) => subGroupName(sid)).filter(Boolean).map((name, i) => (
-                    <span key={`sg-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 11, background: "rgba(117,57,145,0.09)", color: "#753991", fontWeight: 500 }}>
-                      {name}
                     </span>
                   ))}
                 </div>
