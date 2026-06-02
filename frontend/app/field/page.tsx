@@ -31,10 +31,12 @@ function formatDate(iso: string) {
 export default function FieldPage() {
   const { state } = useStore();
   const { currentUser } = useAuth();
-  const { voters, groups, groupLeaders, divisionHeads, statuses, callStatuses, users } = state;
+  const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses, callStatuses, users } = state;
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("");
+  const [subGroupFilter, setSubGroupFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [selected, setSelected] = useState<Voter | null>(null);
   const [logs, setLogs] = useState<ConversationLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
@@ -72,6 +74,16 @@ export default function FieldPage() {
 
   const myGroupIdSet = useMemo(() => new Set(myGroups.map((g) => g.id)), [myGroups]);
 
+  // Sub-groups that belong to the user's groups.
+  const mySubGroups = useMemo(
+    () => subGroups.filter((sg) => myGroupIdSet.has(sg.parentGroupId)),
+    [subGroups, myGroupIdSet]
+  );
+  const subGroupName = useCallback(
+    (id: string) => subGroups.find((sg) => sg.id === id)?.name ?? "",
+    [subGroups]
+  );
+
   // Voters assigned to this user (in any of their groups).
   const myVoters = useMemo(
     () => voters.filter((v) => v.groupIds.some((gid) => myGroupIdSet.has(gid))),
@@ -102,6 +114,13 @@ export default function FieldPage() {
   const filtered = useMemo(() => {
     let list = myVoters;
     if (groupFilter) list = list.filter((v) => v.groupIds.includes(groupFilter));
+    if (subGroupFilter) list = list.filter((v) => (v.subGroupIds ?? []).includes(subGroupFilter));
+    if (categoryFilter) {
+      list = list.filter((v) => {
+        const cat = getStatus(v)?.category;
+        return categoryFilter === "none" ? !cat || !["supporter", "opponent", "undecided"].includes(cat) : cat === categoryFilter;
+      });
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((v) =>
@@ -111,7 +130,7 @@ export default function FieldPage() {
       );
     }
     return list;
-  }, [myVoters, groupFilter, search]);
+  }, [myVoters, groupFilter, subGroupFilter, categoryFilter, search, getStatus]);
 
   // Load conversation history (read-only) when a voter is opened.
   useEffect(() => {
@@ -183,19 +202,29 @@ export default function FieldPage() {
         </div>
       </div>
 
-      {/* Support breakdown by category */}
+      {/* Support breakdown by category — click a row to filter the list */}
       <div style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "#032147", marginBottom: 12 }}>מצב תמיכה</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#032147" }}>מצב תמיכה</span>
+          {categoryFilter && (
+            <button onClick={() => setCategoryFilter("")}
+              style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", cursor: "pointer", color: "#209dd7", fontSize: 12, fontWeight: 600, padding: 0 }}>
+              <X size={12} /> נקה סינון
+            </button>
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {[
-            { label: "תומכים", count: stats.supporters, color: "#16a34a" },
-            { label: "מתנגדים", count: stats.opponents, color: "#dc2626" },
-            { label: "מתלבטים", count: stats.undecided, color: "#f59e0b" },
-            { label: "ללא סטטוס", count: stats.none, color: "#94a3b8" },
+            { key: "supporter", label: "תומכים", count: stats.supporters, color: "#16a34a" },
+            { key: "opponent", label: "מתנגדים", count: stats.opponents, color: "#dc2626" },
+            { key: "undecided", label: "מתלבטים", count: stats.undecided, color: "#f59e0b" },
+            { key: "none", label: "ללא סטטוס", count: stats.none, color: "#94a3b8" },
           ].map((row) => {
             const pct = stats.total ? Math.round((row.count / stats.total) * 100) : 0;
+            const active = categoryFilter === row.key;
             return (
-              <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button key={row.key} onClick={() => setCategoryFilter(active ? "" : row.key)}
+                style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", background: active ? "#f6f8fb" : "none", border: active ? `1px solid ${row.color}55` : "1px solid transparent", borderRadius: 8, padding: "6px 8px", cursor: "pointer", textAlign: "right" }}>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: row.color, flexShrink: 0 }} />
                 <span style={{ fontSize: 13, color: "#475569", minWidth: 78 }}>{row.label}</span>
                 <div style={{ flex: 1, height: 8, borderRadius: 5, background: "#f1f5f9", overflow: "hidden" }}>
@@ -203,10 +232,13 @@ export default function FieldPage() {
                 </div>
                 <span style={{ fontSize: 13, fontWeight: 700, color: "#032147", minWidth: 26, textAlign: "left" }}>{row.count}</span>
                 <span style={{ fontSize: 11, color: "#94a3b8", minWidth: 34, textAlign: "left" }}>{pct}%</span>
-              </div>
+              </button>
             );
           })}
         </div>
+        {categoryFilter && (
+          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>מציג כעת רק את הקטגוריה שנבחרה — לחץ שוב כדי לבטל.</div>
+        )}
       </div>
 
       {/* Search */}
@@ -226,13 +258,34 @@ export default function FieldPage() {
             הכל
           </button>
           {myGroups.map((g) => (
-            <button key={g.id} onClick={() => setGroupFilter(g.id)}
+            <button key={g.id} onClick={() => { setGroupFilter(g.id); setSubGroupFilter(""); }}
               style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: groupFilter === g.id ? "#032147" : "#eef1f5", color: groupFilter === g.id ? "#fff" : "#475569" }}>
               {g.name}
             </button>
           ))}
         </div>
       )}
+
+      {/* Sub-group filter chips */}
+      {(() => {
+        const visibleSubs = groupFilter ? mySubGroups.filter((sg) => sg.parentGroupId === groupFilter) : mySubGroups;
+        if (visibleSubs.length === 0) return null;
+        return (
+          <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 600 }}>תת-קבוצה:</span>
+            <button onClick={() => setSubGroupFilter("")}
+              style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: subGroupFilter === "" ? "#753991" : "#f3eef7", color: subGroupFilter === "" ? "#fff" : "#753991" }}>
+              הכל
+            </button>
+            {visibleSubs.map((sg) => (
+              <button key={sg.id} onClick={() => setSubGroupFilter(sg.id)}
+                style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: subGroupFilter === sg.id ? "#753991" : "#f3eef7", color: subGroupFilter === sg.id ? "#fff" : "#753991" }}>
+                {sg.name}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* List */}
       {myVoters.length === 0 ? (
@@ -263,6 +316,11 @@ export default function FieldPage() {
                   <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {v.groupIds.map(groupName).filter(Boolean).join(" · ") || buildAddress(v)}
                   </div>
+                  {(v.subGroupIds ?? []).length > 0 && (
+                    <div style={{ fontSize: 10, color: "#753991", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+                      {(v.subGroupIds ?? []).map(subGroupName).filter(Boolean).join(" · ")}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
                   {st && (
@@ -331,6 +389,11 @@ export default function FieldPage() {
                   {selected.groupIds.map((gid) => groupName(gid)).filter(Boolean).map((name, i) => (
                     <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 11, background: "rgba(32,157,215,0.09)", color: "#0e6fa0", fontWeight: 500 }}>
                       <Users size={10} /> {name}
+                    </span>
+                  ))}
+                  {(selected.subGroupIds ?? []).map((sid) => subGroupName(sid)).filter(Boolean).map((name, i) => (
+                    <span key={`sg-${i}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 10px", borderRadius: 20, fontSize: 11, background: "rgba(117,57,145,0.09)", color: "#753991", fontWeight: 500 }}>
+                      {name}
                     </span>
                   ))}
                 </div>
