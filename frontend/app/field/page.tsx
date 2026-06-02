@@ -9,6 +9,9 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import {
   Search, X, Phone, MapPin, Users, Clock, Loader2, CheckCircle2, Contact, Filter,
 } from "lucide-react";
+import { usePagination } from "@/hooks/usePagination";
+import ScrollSentinel from "@/components/ui/ScrollSentinel";
+import PaginationFooter from "@/components/ui/PaginationFooter";
 
 function buildAddress(v: Voter) {
   return [v.address.street, v.address.streetNumber, v.address.city].filter(Boolean).join(", ");
@@ -131,6 +134,9 @@ export default function FieldPage() {
     }
     return list;
   }, [myVoters, groupFilter, subGroupFilter, categoryFilter, search, getStatus]);
+
+  // Paginate the filtered list (infinite scroll) so hundreds of voters stay snappy on mobile.
+  const { visible: visibleVoters, hasMore, loadMore, showing, total } = usePagination(filtered);
 
   // Load conversation history (read-only) when a voter is opened.
   useEffect(() => {
@@ -300,7 +306,7 @@ export default function FieldPage() {
         <div style={{ padding: "32px", textAlign: "center", color: "#9ca3af", fontSize: 13 }}>לא נמצאו בוחרים התואמים את החיפוש</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {filtered.map((v) => {
+          {visibleVoters.map((v) => {
             const st = getStatus(v);
             return (
               <div key={v.id} onClick={() => setSelected(v)}
@@ -336,6 +342,8 @@ export default function FieldPage() {
               </div>
             );
           })}
+          {hasMore && <ScrollSentinel onIntersect={loadMore} />}
+          <PaginationFooter showing={showing} total={total} hasMore={hasMore} entityLabel="בוחרים" />
         </div>
       )}
 
