@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useStore, getActiveTenant } from "@/lib/store";
 import { auth, db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 import { Tenant } from "@/types";
-import { Building2, Plus, LogIn, Snowflake, PlayCircle, Home, Loader2, X, CheckCircle2 } from "lucide-react";
+import { Building2, Plus, LogIn, Snowflake, PlayCircle, Home, Loader2, X, CheckCircle2, Pencil, Check } from "lucide-react";
 
 export default function CompaniesPage() {
   const { isSuperAdmin, loading } = useStore();
@@ -16,6 +16,8 @@ export default function CompaniesPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const [form, setForm] = useState({ companyName: "", adminFirstName: "", adminLastName: "", adminEmail: "", adminPhone: "", adminPassword: "" });
 
   const active = getActiveTenant();
@@ -42,6 +44,18 @@ export default function CompaniesPage() {
   const goHome = () => {
     localStorage.removeItem("active_tenant");
     window.location.href = "/dashboard";
+  };
+
+  const saveName = async (t: Tenant) => {
+    const name = editName.trim();
+    if (!name || name === t.name) { setEditingId(null); return; }
+    setBusy(true); setErr("");
+    try {
+      await updateDoc(doc(db, "tenants", t.id), { name });
+      setEditingId(null);
+      await loadTenants();
+    } catch { setErr("עדכון השם נכשל."); }
+    finally { setBusy(false); }
   };
 
   const toggleFreeze = async (t: Tenant) => {
@@ -108,11 +122,22 @@ export default function CompaniesPage() {
           return (
             <div key={t.id} style={{ background: "#fff", border: `1px solid ${isActive ? "#753991" : "#eef1f5"}`, borderRadius: 12, padding: "13px 15px", display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: "#032147", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  {t.name}
-                  {isActive && <span style={{ fontSize: 11, color: "#753991", background: "rgba(117,57,145,0.12)", borderRadius: 20, padding: "1px 8px" }}>פעילה כעת</span>}
-                  {t.isFrozen && <span style={{ fontSize: 11, color: "#dc2626", background: "rgba(220,38,38,0.1)", borderRadius: 20, padding: "1px 8px" }}>מוקפאת</span>}
-                </div>
+                {editingId === t.id ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input className="input" value={editName} autoFocus onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") saveName(t); if (e.key === "Escape") setEditingId(null); }}
+                      style={{ maxWidth: 240 }} />
+                    <button onClick={() => saveName(t)} disabled={busy} title="שמור" style={{ display: "flex", padding: 7, borderRadius: 8, border: "none", background: "#16a34a", color: "#fff", cursor: "pointer" }}><Check size={14} /></button>
+                    <button onClick={() => setEditingId(null)} title="ביטול" style={{ display: "flex", padding: 7, borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", color: "#64748b", cursor: "pointer" }}><X size={14} /></button>
+                  </div>
+                ) : (
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "#032147", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    {t.name}
+                    <button onClick={() => { setEditingId(t.id); setEditName(t.name); }} title="ערוך שם" style={{ display: "flex", padding: 4, borderRadius: 6, border: "none", background: "none", color: "#94a3b8", cursor: "pointer" }}><Pencil size={13} /></button>
+                    {isActive && <span style={{ fontSize: 11, color: "#753991", background: "rgba(117,57,145,0.12)", borderRadius: 20, padding: "1px 8px" }}>פעילה כעת</span>}
+                    {t.isFrozen && <span style={{ fontSize: 11, color: "#dc2626", background: "rgba(220,38,38,0.1)", borderRadius: 20, padding: "1px 8px" }}>מוקפאת</span>}
+                  </div>
+                )}
               </div>
               <button onClick={() => enterCompany(t.id)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 8, border: "none", background: "#032147", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 <LogIn size={13} /> כניסה
