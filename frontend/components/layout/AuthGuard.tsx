@@ -9,7 +9,7 @@ import { auth } from "@/lib/firebase";
 import { multiFactor } from "firebase/auth";
 import Sidebar from "@/components/layout/Sidebar";
 import LoadingWrapper from "@/components/layout/LoadingWrapper";
-import { Menu } from "lucide-react";
+import { Menu, Shield } from "lucide-react";
 
 const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
 
