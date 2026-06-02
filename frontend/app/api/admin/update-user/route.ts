@@ -28,9 +28,12 @@ export async function POST(req: NextRequest) {
       await adminAuth().updateUser(uid, authUpdate);
     }
 
-    // 2) Update the role custom claim (this is what security rules check).
+    // 2) Update the role custom claim — preserving the existing tenantId
+    //    (setCustomUserClaims replaces ALL claims, so we must keep tenantId).
     if (role) {
-      await adminAuth().setCustomUserClaims(uid, { role });
+      const target = await adminAuth().getUser(uid);
+      const existing = target.customClaims || {};
+      await adminAuth().setCustomUserClaims(uid, { ...existing, role });
     }
 
     // 3) Update the Firestore profile (no password ever stored here).

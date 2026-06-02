@@ -14,6 +14,8 @@ import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   getDocs,
+  query,
+  where,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -22,6 +24,31 @@ import {
   arrayUnion,
   arrayRemove,
 } from "firebase/firestore";
+
+// ── Active tenant (company) scoping ───────────────────────────────────────────
+// Every read is filtered by this, every write is stamped with it.
+let ACTIVE_TENANT: string | null = null;
+export function getActiveTenant() { return ACTIVE_TENANT; }
+
+// Resolve which tenant the signed-in user is working in:
+//  - normal user: their tenantId claim
+//  - super admin: a company they selected (localStorage), else their own
+async function resolveActiveTenant(user: import("firebase/auth").User): Promise<string | null> {
+  try {
+    // Force-refresh so newly-set tenant/super-admin claims are picked up even
+    // for sessions that signed in before the claims were assigned.
+    const res = await user.getIdTokenResult(true);
+    const claimTid = (res.claims.tenantId as string) || null;
+    const isSuper = res.claims.isSuperAdmin === true;
+    if (isSuper && typeof window !== "undefined") {
+      const sel = localStorage.getItem("active_tenant");
+      if (sel) return sel;
+    }
+    return claimTid;
+  } catch {
+    return null;
+  }
+}
 
 type StoreContextType = {
   state: AppState;
@@ -77,18 +104,13 @@ const EMPTY_STATE: AppState = {
   reminders: [],
 };
 
-async function loadFromFirestore(): Promise<AppState> {
+async function loadFromFirestore(tid: string): Promise<AppState> {
+  // Scope every collection to the active tenant (company).
+  const q = (name: string) => getDocs(query(collection(db, name), where("tenantId", "==", tid)));
   const [votersSnap, groupsSnap, subGroupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap, remindersSnap] =
     await Promise.all([
-      getDocs(collection(db, "voters")),
-      getDocs(collection(db, "groups")),
-      getDocs(collection(db, "subGroups")),
-      getDocs(collection(db, "groupLeaders")),
-      getDocs(collection(db, "divisionHeads")),
-      getDocs(collection(db, "statuses")),
-      getDocs(collection(db, "callStatuses")),
-      getDocs(collection(db, "users")),
-      getDocs(collection(db, "reminders")),
+      q("voters"), q("groups"), q("subGroups"), q("groupLeaders"), q("divisionHeads"),
+      q("statuses"), q("callStatuses"), q("users"), q("reminders"),
     ]);
 
   const voters = votersSnap.docs.map((d: { data(): unknown }) => d.data() as Voter);
@@ -120,6 +142,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef<AppState>(EMPTY_STATE);
   stateRef.current = state;
 
+  // The active tenant for writes (kept in a ref so write helpers see it).
+  const tenantIdRef = useRef<string | null>(ACTIVE_TENANT);
+  // Stamp a new/updated document with the active tenant so it stays scoped.
+  const stamp = <T extends object>(obj: T): T & { tenantId: string | null } => ({ ...obj, tenantId: tenantIdRef.current });
+
   // Load data once Firebase Auth is ready. The security rules require an
   // authenticated user, so we must wait for sign-in before reading — otherwise
   // the reads are denied and the app shows empty until a manual refresh.
@@ -135,8 +162,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setLoading(true);
       try {
-        // Load whatever exists in Firestore. No demo data is ever seeded.
-        const loaded = await loadFromFirestore();
+        const tid = await resolveActiveTenant(user);
+        ACTIVE_TENANT = tid;
+        tenantIdRef.current = tid;
+        if (!tid) { setState(EMPTY_STATE); return; }
+        // Load only this tenant's data.
+        const loaded = await loadFromFirestore(tid);
         setState(loaded);
       } catch (e) {
         console.error("Firestore load failed", e);
@@ -160,7 +191,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : g
       ),
     }));
-    setDoc(doc(db, "voters", voter.id), voter).catch(console.error);
+    setDoc(doc(db, "voters", voter.id), stamp(voter)).catch(console.error);
     voter.groupIds.forEach((gid) =>
       updateDoc(doc(db, "groups", gid), { voterIds: arrayUnion(voter.id) }).catch(console.error)
     );
@@ -185,7 +216,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return sg;
       }),
     }));
-    setDoc(doc(db, "voters", voter.id), voter).catch(console.error);
+    setDoc(doc(db, "voters", voter.id), stamp(voter)).catch(console.error);
     addedSubs.forEach(sgid => updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayUnion(voter.id) }).catch(console.error));
     removedSubs.forEach(sgid => updateDoc(doc(db, "subGroups", sgid), { voterIds: arrayRemove(voter.id) }).catch(console.error));
   };
@@ -300,7 +331,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     // Persist to Firestore
     const batch = writeBatch(db);
-    newVoters.forEach((v) => batch.set(doc(db, "voters", v.id), v));
+    newVoters.forEach((v) => batch.set(doc(db, "voters", v.id), stamp(v)));
     byGroup.forEach((voterIds, groupId) => {
       batch.update(doc(db, "groups", groupId), { voterIds: arrayUnion(...voterIds) });
     });
@@ -319,7 +350,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return newState;
     });
-    setDoc(doc(db, "groups", group.id), group).catch(console.error);
+    setDoc(doc(db, "groups", group.id), stamp(group)).catch(console.error);
     if (group.groupLeaderId)
       updateDoc(doc(db, "groupLeaders", group.groupLeaderId), {
         groupIds: arrayUnion(group.id),
@@ -345,7 +376,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         groupLeaders,
       };
     });
-    setDoc(doc(db, "groups", group.id), group).catch(console.error);
+    setDoc(doc(db, "groups", group.id), stamp(group)).catch(console.error);
     if (old && old.groupLeaderId !== group.groupLeaderId) {
       if (old.groupLeaderId)
         updateDoc(doc(db, "groupLeaders", old.groupLeaderId), {
@@ -397,7 +428,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           : g
       ),
     }));
-    setDoc(doc(db, "subGroups", sg.id), sg).catch(console.error);
+    setDoc(doc(db, "subGroups", sg.id), stamp(sg)).catch(console.error);
     updateDoc(doc(db, "groups", sg.parentGroupId), { subGroupIds: arrayUnion(sg.id) }).catch(console.error);
   };
 
@@ -406,7 +437,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...s,
       subGroups: s.subGroups.map((x) => (x.id === sg.id ? sg : x)),
     }));
-    setDoc(doc(db, "subGroups", sg.id), sg).catch(console.error);
+    setDoc(doc(db, "subGroups", sg.id), stamp(sg)).catch(console.error);
   };
 
   const deleteSubGroup = (id: string) => {
@@ -448,7 +479,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       return newState;
     });
-    setDoc(doc(db, "groupLeaders", gl.id), gl).catch(console.error);
+    setDoc(doc(db, "groupLeaders", gl.id), stamp(gl)).catch(console.error);
     if (gl.divisionHeadId)
       updateDoc(doc(db, "divisionHeads", gl.divisionHeadId), {
         groupLeaderIds: arrayUnion(gl.id),
@@ -474,7 +505,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         divisionHeads,
       };
     });
-    setDoc(doc(db, "groupLeaders", gl.id), gl).catch(console.error);
+    setDoc(doc(db, "groupLeaders", gl.id), stamp(gl)).catch(console.error);
     if (old && old.divisionHeadId !== gl.divisionHeadId) {
       if (old.divisionHeadId)
         updateDoc(doc(db, "divisionHeads", old.divisionHeadId), {
@@ -516,7 +547,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addDivisionHead = (dh: DivisionHead) => {
     setState((s) => ({ ...s, divisionHeads: [...s.divisionHeads, dh] }));
-    setDoc(doc(db, "divisionHeads", dh.id), dh).catch(console.error);
+    setDoc(doc(db, "divisionHeads", dh.id), stamp(dh)).catch(console.error);
   };
 
   const updateDivisionHead = (dh: DivisionHead) => {
@@ -524,7 +555,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...s,
       divisionHeads: s.divisionHeads.map((d) => (d.id === dh.id ? dh : d)),
     }));
-    setDoc(doc(db, "divisionHeads", dh.id), dh).catch(console.error);
+    setDoc(doc(db, "divisionHeads", dh.id), stamp(dh)).catch(console.error);
   };
 
   const deleteDivisionHead = (id: string) => {
@@ -542,7 +573,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addStatus = (status: Status) => {
     setState((s) => ({ ...s, statuses: [...s.statuses, status] }));
-    setDoc(doc(db, "statuses", status.id), status).catch(console.error);
+    setDoc(doc(db, "statuses", status.id), stamp(status)).catch(console.error);
   };
 
   const updateStatus = (status: Status) => {
@@ -550,7 +581,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...s,
       statuses: s.statuses.map((st) => (st.id === status.id ? status : st)),
     }));
-    setDoc(doc(db, "statuses", status.id), status).catch(console.error);
+    setDoc(doc(db, "statuses", status.id), stamp(status)).catch(console.error);
   };
 
   const deleteStatus = (id: string) => {
@@ -564,7 +595,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const updated = stateRef.current.statuses.map((s) => ({ ...s, isDefault: s.id === id }));
     setState((s) => ({ ...s, statuses: updated }));
     const batch = writeBatch(db);
-    updated.forEach((s) => batch.set(doc(db, "statuses", s.id), s));
+    updated.forEach((s) => batch.set(doc(db, "statuses", s.id), stamp(s)));
     batch.commit().catch(console.error);
   };
 
@@ -572,7 +603,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addCallStatus = (cs: CallStatus) => {
     setState((s) => ({ ...s, callStatuses: [...s.callStatuses, cs] }));
-    setDoc(doc(db, "callStatuses", cs.id), cs).catch(console.error);
+    setDoc(doc(db, "callStatuses", cs.id), stamp(cs)).catch(console.error);
   };
 
   const updateCallStatus = (cs: CallStatus) => {
@@ -580,7 +611,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...s,
       callStatuses: s.callStatuses.map((c) => (c.id === cs.id ? cs : c)),
     }));
-    setDoc(doc(db, "callStatuses", cs.id), cs).catch(console.error);
+    setDoc(doc(db, "callStatuses", cs.id), stamp(cs)).catch(console.error);
   };
 
   const deleteCallStatus = (id: string) => {
@@ -592,7 +623,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addUser = (user: AppUser) => {
     setState((s) => ({ ...s, users: [...s.users, user] }));
-    setDoc(doc(db, "users", user.id), user).catch(console.error);
+    setDoc(doc(db, "users", user.id), stamp(user)).catch(console.error);
   };
 
   const updateUser = (user: AppUser) => {
@@ -600,7 +631,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...s,
       users: s.users.map((u) => (u.id === user.id ? user : u)),
     }));
-    setDoc(doc(db, "users", user.id), user).catch(console.error);
+    setDoc(doc(db, "users", user.id), stamp(user)).catch(console.error);
   };
 
   const freezeUser = (id: string, frozen: boolean) => {
@@ -619,12 +650,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addReminder = (r: Reminder) => {
     setState((s) => ({ ...s, reminders: [...s.reminders, r] }));
-    setDoc(doc(db, "reminders", r.id), r).catch(console.error);
+    setDoc(doc(db, "reminders", r.id), stamp(r)).catch(console.error);
   };
 
   const updateReminder = (r: Reminder) => {
     setState((s) => ({ ...s, reminders: s.reminders.map((x) => (x.id === r.id ? r : x)) }));
-    setDoc(doc(db, "reminders", r.id), r).catch(console.error);
+    setDoc(doc(db, "reminders", r.id), stamp(r)).catch(console.error);
   };
 
   const deleteReminder = (id: string) => {
@@ -634,7 +665,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const refreshReminders = async (): Promise<void> => {
     try {
-      const snap = await getDocs(collection(db, "reminders"));
+      if (!tenantIdRef.current) return;
+      const snap = await getDocs(query(collection(db, "reminders"), where("tenantId", "==", tenantIdRef.current)));
       setState((s) => ({ ...s, reminders: snap.docs.map((d) => d.data() as Reminder) }));
     } catch (e) {
       console.error("refreshReminders failed", e);
@@ -645,7 +677,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const refreshUsers = async (): Promise<void> => {
     try {
-      const snap = await getDocs(collection(db, "users"));
+      if (!tenantIdRef.current) return;
+      const snap = await getDocs(query(collection(db, "users"), where("tenantId", "==", tenantIdRef.current)));
       const users = snap.docs.map((d) => d.data() as AppUser);
       if (users.length > 0) {
         setState((s) => ({ ...s, users }));

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useStore } from "@/lib/store";
+import { useStore, getActiveTenant } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { auth } from "@/lib/firebase";
 import { AppUser, UserRole } from "@/types";
@@ -152,6 +152,7 @@ export default function UsersPage() {
           phone: form.phone,
           role: form.role,
           password: form.password,
+          tenantId: getActiveTenant(),
         }),
       });
 

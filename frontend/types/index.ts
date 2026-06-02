@@ -89,6 +89,7 @@ export type ConversationLog = {
   callStatus: string;
   statusId: string;
   notes: string;
+  tenantId?: string;
 };
 
 export type UserRole = "admin" | "field" | "telemarketing" | "group_leader" | "division_head";
@@ -103,6 +104,16 @@ export type AppUser = {
   isFrozen: boolean;
   createdAt: string;
   password: string;
+  tenantId?: string;
+  isSuperAdmin?: boolean;
+};
+
+// A company / workspace (multi-tenancy).
+export type Tenant = {
+  id: string;
+  name: string;
+  isFrozen: boolean;
+  createdAt: string;
 };
 
 export type AppState = {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useStore } from "@/lib/store";
+import { useStore, getActiveTenant } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { ConversationLog, Voter } from "@/types";
 import { db } from "@/lib/firebase";
@@ -181,6 +181,7 @@ export default function TelemarketingPage() {
     const log: ConversationLog = {
       id: generateId(), voterId: selectedVoter.id, userId: currentUser?.id ?? "",
       timestamp: new Date().toISOString(), callStatus: formCallStatusId, statusId: formStatusId, notes: formNotes.trim(),
+      tenantId: getActiveTenant() ?? undefined,
     };
     try {
       await setDoc(doc(db, "conversationLogs", log.id), log);
