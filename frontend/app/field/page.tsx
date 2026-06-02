@@ -84,15 +84,18 @@ export default function FieldPage() {
     [statuses, defaultStatusId]
   );
 
-  // Stats
+  // Stats — broken down by the (one-to-one) status category.
   const stats = useMemo(() => {
-    let supporters = 0, voted = 0;
+    let supporters = 0, opponents = 0, undecided = 0, none = 0, voted = 0;
     for (const v of myVoters) {
-      const st = getStatus(v);
-      if (st?.category === "supporter") supporters++;
+      const cat = getStatus(v)?.category;
+      if (cat === "supporter") supporters++;
+      else if (cat === "opponent") opponents++;
+      else if (cat === "undecided") undecided++;
+      else none++;
       if (v.hasVoted) voted++;
     }
-    return { total: myVoters.length, supporters, voted };
+    return { total: myVoters.length, supporters, opponents, undecided, none, voted };
   }, [myVoters, getStatus]);
 
   // Filtered list
@@ -168,19 +171,41 @@ export default function FieldPage() {
         </div>
       )}
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 16 }}>
+      {/* Stats — total + voted */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 10 }}>
         <div style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "12px", textAlign: "center" }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#032147" }}>{stats.total}</div>
-          <div style={{ fontSize: 11, color: "#94a3b8" }}>בוחרים</div>
-        </div>
-        <div style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "12px", textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#16a34a" }}>{stats.supporters}</div>
-          <div style={{ fontSize: 11, color: "#94a3b8" }}>תומכים</div>
+          <div style={{ fontSize: 11, color: "#94a3b8" }}>סה״כ בוחרים</div>
         </div>
         <div style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "12px", textAlign: "center" }}>
           <div style={{ fontSize: 22, fontWeight: 800, color: "#209dd7" }}>{stats.voted}</div>
           <div style={{ fontSize: 11, color: "#94a3b8" }}>הצביעו</div>
+        </div>
+      </div>
+
+      {/* Support breakdown by category */}
+      <div style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#032147", marginBottom: 12 }}>מצב תמיכה</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { label: "תומכים", count: stats.supporters, color: "#16a34a" },
+            { label: "מתנגדים", count: stats.opponents, color: "#dc2626" },
+            { label: "מתלבטים", count: stats.undecided, color: "#f59e0b" },
+            { label: "ללא סטטוס", count: stats.none, color: "#94a3b8" },
+          ].map((row) => {
+            const pct = stats.total ? Math.round((row.count / stats.total) * 100) : 0;
+            return (
+              <div key={row.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: row.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, color: "#475569", minWidth: 78 }}>{row.label}</span>
+                <div style={{ flex: 1, height: 8, borderRadius: 5, background: "#f1f5f9", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${pct}%`, background: row.color, borderRadius: 5 }} />
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#032147", minWidth: 26, textAlign: "left" }}>{row.count}</span>
+                <span style={{ fontSize: 11, color: "#94a3b8", minWidth: 34, textAlign: "left" }}>{pct}%</span>
+              </div>
+            );
+          })}
         </div>
       </div>
 
