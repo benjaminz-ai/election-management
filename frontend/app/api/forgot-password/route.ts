@@ -1,29 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { initializeApp, getApps } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  updateDoc,
-  doc,
-  writeBatch,
-} from "firebase/firestore";
+import { adminDb } from "@/lib/firebaseAdmin";
 import nodemailer from "nodemailer";
 import { randomUUID } from "crypto";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyB6f5AkDkvsDqI99aIyj_sopKAbBlybT78",
-  projectId: "election-management-145fc",
-};
-
-function getDb() {
-  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  return getFirestore(app);
-}
-
+// Uses the Firebase Admin SDK (server credentials) so it works regardless of
+// Firestore security rules — the `users` and `passwordResets` collections are
+// locked to clients, and only the server may touch passwordResets.
 export async function POST(req: NextRequest) {
   try {
     const { email } = await req.json();
@@ -31,37 +13,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "נדרש כתובת אימייל" }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = adminDb();
     const normalizedEmail = email.trim().toLowerCase();
 
     // Find user by email
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("email", "==", normalizedEmail));
-    const snap = await getDocs(q);
+    const snap = await db.collection("users").where("email", "==", normalizedEmail).get();
 
-    // Always return success (don't reveal if email exists)
+    // Always return success (don't reveal whether the email exists)
     if (snap.empty) {
       return NextResponse.json({ success: true });
     }
 
     const userDoc = snap.docs[0];
     const userData = userDoc.data();
-    const userId = userDoc.id; // Firestore document ID = user's id field
+    const userId = userDoc.id; // Firestore document ID = user's id (uid)
 
-    // Invalidate ALL previous unused reset tokens for this user.
-    // This ensures only the latest reset link is valid — old emails become useless.
-    const resetsRef = collection(db, "passwordResets");
-    const oldTokensQuery = query(
-      resetsRef,
-      where("userId", "==", userId),
-      where("used", "==", false)
-    );
-    const oldTokensSnap = await getDocs(oldTokensQuery);
+    // Invalidate ALL previous unused reset tokens for this user, so only the
+    // latest reset link works — old emails become useless.
+    const oldTokensSnap = await db
+      .collection("passwordResets")
+      .where("userId", "==", userId)
+      .where("used", "==", false)
+      .get();
     if (!oldTokensSnap.empty) {
-      const batch = writeBatch(db);
-      oldTokensSnap.docs.forEach((d) => {
-        batch.update(doc(db, "passwordResets", d.id), { used: true });
-      });
+      const batch = db.batch();
+      oldTokensSnap.docs.forEach((d) => batch.update(d.ref, { used: true }));
       await batch.commit();
     }
 
@@ -70,7 +46,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour
 
     // Store new reset token
-    await addDoc(resetsRef, {
+    await db.collection("passwordResets").add({
       token,
       userId,
       email: normalizedEmail,

@@ -1,26 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { initializeApp, getApps } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
 import { adminAuth, adminDb } from "@/lib/firebaseAdmin";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyB6f5AkDkvsDqI99aIyj_sopKAbBlybT78",
-  projectId: "election-management-145fc",
-};
-
-function getDb() {
-  const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-  return getFirestore(app);
-}
-
+// Fully on the Admin SDK so it works under the locked-down Firestore rules
+// (passwordResets is server-only). The new password is applied to the real
+// Firebase Auth account, so the old password stops working immediately.
 export async function POST(req: NextRequest) {
   try {
     const { token, newPassword } = await req.json();
@@ -32,11 +15,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "הסיסמה חייבת להכיל לפחות 6 תווים" }, { status: 400 });
     }
 
-    const db = getDb();
+    const db = adminDb();
 
     // Find + validate the reset token
-    const resetsRef = collection(db, "passwordResets");
-    const snap = await getDocs(query(resetsRef, where("token", "==", token)));
+    const snap = await db.collection("passwordResets").where("token", "==", token).get();
     if (snap.empty) {
       return NextResponse.json({ error: "הקישור אינו תקף" }, { status: 400 });
     }
@@ -55,19 +37,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "הקישור חסר כתובת אימייל" }, { status: 400 });
     }
 
-    // ── Primary: update the password in Firebase Authentication ──────────────
+    // Update the password in Firebase Authentication (the real login password).
     const userRecord = await adminAuth().getUserByEmail(email);
     await adminAuth().updateUser(userRecord.uid, { password: newPassword });
 
-    // ── Transition safety: keep the legacy Firestore password in sync too, so
-    //    the fallback login path stays consistent until we remove it.
-    const usersSnap = await adminDb().collection("users").where("email", "==", email).get();
-    await Promise.all(
-      usersSnap.docs.map((d) => d.ref.update({ password: newPassword }).catch(() => {}))
-    );
-
-    // Mark token used
-    await updateDoc(doc(db, "passwordResets", resetDoc.id), { used: true });
+    // Mark the token used so the link can't be reused.
+    await resetDoc.ref.update({ used: true });
 
     return NextResponse.json({ success: true });
   } catch (error) {
