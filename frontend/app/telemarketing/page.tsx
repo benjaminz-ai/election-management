@@ -141,7 +141,7 @@ export default function TelemarketingPage() {
   const loadLogs = useCallback(async (voterId: string) => {
     setLogsLoading(true); setLogsLoadError(false);
     try {
-      const q = query(collection(db, "conversationLogs"), where("voterId", "==", voterId));
+      const q = query(collection(db, "conversationLogs"), where("voterId", "==", voterId), where("tenantId", "==", getActiveTenant()));
       const snap = await getDocs(q);
       setLogs(snap.docs.map((d) => d.data() as ConversationLog).sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
     } catch { setLogsLoadError(true); setLogs([]); }

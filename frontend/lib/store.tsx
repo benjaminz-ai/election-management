@@ -55,6 +55,7 @@ type StoreContextType = {
   state: AppState;
   loading: boolean;
   tenantName: string | null;
+  tenantFrozen: boolean;
   isSuperAdmin: boolean;
   addVoter: (voter: Voter) => void;
   updateVoter: (voter: Voter) => void;
@@ -146,6 +147,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   stateRef.current = state;
 
   const [tenantName, setTenantName] = useState<string | null>(null);
+  const [tenantFrozen, setTenantFrozen] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   // The active tenant for writes (kept in a ref so write helpers see it).
   const tenantIdRef = useRef<string | null>(ACTIVE_TENANT);
@@ -179,7 +181,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         try {
           const tSnap = await getDoc(doc(db, "tenants", tid));
           setTenantName((tSnap.data()?.name as string) ?? null);
-        } catch { setTenantName(null); }
+          setTenantFrozen(tSnap.data()?.isFrozen === true);
+        } catch { setTenantName(null); setTenantFrozen(false); }
         // Load only this tenant's data.
         const loaded = await loadFromFirestore(tid);
         setState(loaded);
@@ -710,6 +713,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         state,
         loading,
         tenantName,
+        tenantFrozen,
         isSuperAdmin,
         addVoter,
         updateVoter,

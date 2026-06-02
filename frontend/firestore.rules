@@ -1,67 +1,60 @@
 rules_version = '2';
 
-// Security rules for the election-management app.
+// Security rules — multi-tenant (per-company) isolation.
 //
-// Model:
-//   * Every staff member now authenticates through Firebase Authentication.
-//   * Their role is stored as a custom claim (request.auth.token.role):
-//     "admin" | "field" | "telemarketing" | "group_leader" | "division_head".
-//   * Shared campaign data is loaded/edited client-side by any signed-in
-//     staff member, so those collections require authentication (not anonymous).
-//   * User management is admin-only.
-//   * passwordResets is written ONLY by the server (Admin SDK), which bypasses
-//     these rules — so all client access is denied.
+// Identity (custom claims):
+//   * role         — "admin" | "field" | "telemarketing" | "group_leader" | "division_head"
+//   * tenantId     — the company the user belongs to
+//   * isSuperAdmin — platform owner; may access ANY company
 //
-// This replaces the temporary open rule (allow ... if true) that was the
-// original security hole.
+// Every tenant-scoped document carries a tenantId. A normal user may only
+// touch documents whose tenantId equals their own; a super admin may touch any.
+// (Company "freeze" is enforced at the app + Auth level, not here, to avoid
+// per-document get() calls that would exceed query rule limits.)
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ---- helpers ----
-    function isSignedIn() {
-      return request.auth != null;
-    }
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
-    }
-    function isSuperAdmin() {
-      return isSignedIn() && request.auth.token.isSuperAdmin == true;
-    }
+    function isSignedIn()  { return request.auth != null; }
+    function myTenant()    { return request.auth.token.tenantId; }
+    function isSuperAdmin(){ return isSignedIn() && request.auth.token.isSuperAdmin == true; }
+    function isAdmin()     { return isSignedIn() && request.auth.token.role == 'admin'; }
 
-    // ---- tenants (companies): read your own (or any, for super admin) ----
+    // Tenant-scoped access helpers.
+    function canRead()   { return isSignedIn() && (isSuperAdmin() || resource.data.tenantId == myTenant()); }
+    function canCreate() { return isSignedIn() && (isSuperAdmin() || request.resource.data.tenantId == myTenant()); }
+    function canUpdate() { return isSignedIn() && (isSuperAdmin() || (resource.data.tenantId == myTenant() && request.resource.data.tenantId == myTenant())); }
+    function canDelete() { return isSignedIn() && (isSuperAdmin() || resource.data.tenantId == myTenant()); }
+
+    // ---- tenants (companies): read your own (or any, for super admin); only super admin writes ----
     match /tenants/{id} {
-      allow read:  if isSignedIn() && (id == request.auth.token.tenantId || isSuperAdmin());
+      allow read:  if isSignedIn() && (id == myTenant() || isSuperAdmin());
       allow write: if isSuperAdmin();
     }
 
-    // ---- shared campaign data: any signed-in staff member ----
-    match /voters/{id}        { allow read, write: if isSignedIn(); }
-    match /groups/{id}        { allow read, write: if isSignedIn(); }
-    match /subGroups/{id}     { allow read, write: if isSignedIn(); }
-    match /groupLeaders/{id}  { allow read, write: if isSignedIn(); }
-    match /divisionHeads/{id} { allow read, write: if isSignedIn(); }
-    match /statuses/{id}      { allow read, write: if isSignedIn(); }
-    match /callStatuses/{id}  { allow read, write: if isSignedIn(); }
-    match /conversationLogs/{id} { allow read, write: if isSignedIn(); }
+    // ---- shared campaign data — tenant-scoped ----
+    match /voters/{id}           { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /groups/{id}           { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /subGroups/{id}        { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /groupLeaders/{id}     { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /divisionHeads/{id}    { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /statuses/{id}         { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /callStatuses/{id}     { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /conversationLogs/{id} { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /reminders/{id}        { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
 
-    // ---- reminders: personal, any signed-in user manages them ----
-    match /reminders/{id}     { allow read, write: if isSignedIn(); }
-
-    // ---- users: everyone signed-in may read the roster; only admins write ----
+    // ---- users — read within company; writes by admins (within company) or super admin ----
     match /users/{id} {
-      allow read:  if isSignedIn();
-      allow write: if isAdmin();
+      allow read:   if canRead();
+      allow create: if (isAdmin() || isSuperAdmin()) && canCreate();
+      allow update: if (isAdmin() || isSuperAdmin()) && canUpdate();
+      allow delete: if (isAdmin() || isSuperAdmin()) && canDelete();
     }
 
-    // ---- passwordResets: server-only (Admin SDK bypasses rules) ----
-    match /passwordResets/{id} {
-      allow read, write: if false;
-    }
+    // ---- passwordResets — server only (Admin SDK bypasses rules) ----
+    match /passwordResets/{id} { allow read, write: if false; }
 
-    // ---- everything else: deny ----
-    match /{document=**} {
-      allow read, write: if false;
-    }
+    // ---- everything else — deny ----
+    match /{document=**} { allow read, write: if false; }
   }
 }

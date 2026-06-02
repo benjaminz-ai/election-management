@@ -1,0 +1,13 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "conversationLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "voterId", "order": "ASCENDING" },
+        { "fieldPath": "tenantId", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

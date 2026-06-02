@@ -14,8 +14,8 @@ import { Menu } from "lucide-react";
 const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
-  const { currentUser } = useAuth();
-  const { loading } = useStore();
+  const { currentUser, logout } = useAuth();
+  const { loading, tenantFrozen, isSuperAdmin } = useStore();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -69,6 +69,26 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   // the user hasn't fully entered the system yet.
   if (pathname === "/enroll-mfa") {
     return <>{children}</>;
+  }
+
+  // Company frozen: block all of its users (including the company admin).
+  // Only the super admin can still get in (to unfreeze).
+  if (tenantFrozen && !isSuperAdmin) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#f3f5f9" }}>
+        <div style={{ maxWidth: 420, background: "#fff", borderRadius: 16, padding: "32px 28px", textAlign: "center", boxShadow: "0 10px 40px rgba(3,33,71,0.12)" }}>
+          <Shield size={40} color="#dc2626" style={{ margin: "0 auto 14px", display: "block" }} />
+          <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#032147" }}>הגישה לחברה הושהתה</h1>
+          <p style={{ margin: "10px 0 20px", fontSize: 14, color: "#64748b", lineHeight: 1.7 }}>
+            החשבון של החברה הוקפא זמנית. לפרטים נוספים פנה למנהל המערכת.
+          </p>
+          <button onClick={() => { logout(); router.replace("/login"); }}
+            style={{ padding: "11px 28px", borderRadius: 10, border: "none", background: "#032147", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+            יציאה
+          </button>
+        </div>
+      </div>
+    );
   }
 
   // A user who must use two-factor but hasn't enrolled yet may NOT see the app

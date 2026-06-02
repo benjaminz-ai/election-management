@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useStore } from "@/lib/store";
+import { useStore, getActiveTenant } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { ConversationLog, Voter, Group } from "@/types";
 import { db } from "@/lib/firebase";
@@ -131,7 +131,7 @@ export default function FieldPage() {
     setLogsLoading(true); setLogsError(false);
     (async () => {
       try {
-        const snap = await getDocs(query(collection(db, "conversationLogs"), where("voterId", "==", selected.id)));
+        const snap = await getDocs(query(collection(db, "conversationLogs"), where("voterId", "==", selected.id), where("tenantId", "==", getActiveTenant())));
         if (cancelled) return;
         const rows = snap.docs.map((d) => d.data() as ConversationLog).sort((a, b) => b.timestamp.localeCompare(a.timestamp));
         setLogs(rows);
