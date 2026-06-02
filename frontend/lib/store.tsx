@@ -9,7 +9,8 @@ import React, {
   ReactNode,
 } from "react";
 import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, AppUser, Reminder } from "@/types";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   getDocs,
@@ -119,8 +120,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef<AppState>(EMPTY_STATE);
   stateRef.current = state;
 
+  // Load data once Firebase Auth is ready. The security rules require an
+  // authenticated user, so we must wait for sign-in before reading — otherwise
+  // the reads are denied and the app shows empty until a manual refresh.
+  // onAuthStateChanged also fires right after login, so data appears
+  // automatically without needing a refresh.
   useEffect(() => {
-    (async () => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        // Signed out: clear data and stop loading (login screen).
+        setState(EMPTY_STATE);
+        setLoading(false);
+        return;
+      }
+      setLoading(true);
       try {
         // Load whatever exists in Firestore. No demo data is ever seeded.
         const loaded = await loadFromFirestore();
@@ -131,7 +144,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       } finally {
         setLoading(false);
       }
-    })();
+    });
+    return () => unsub();
   }, []);
 
   // ── Voters ────────────────────────────────────────────────────────────────────

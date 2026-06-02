@@ -33,14 +33,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Firebase service account keys — NEVER commit (full admin access)
+*firebase-adminsdk*.json
+*service-account*.json
+serviceAccount*.json
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# Firebase service account keys — NEVER commit (grants full DB control)
-*firebase-adminsdk*.json
-serviceAccount*.json
-*-service-account*.json
