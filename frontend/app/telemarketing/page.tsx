@@ -425,7 +425,7 @@ export default function TelemarketingPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
               {/* Nav bar */}
-              <div style={{ background: "#032147", borderRadius: 12, padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ background: "#032147", borderRadius: 12, padding: "10px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 8, zIndex: 20, boxShadow: "0 4px 14px rgba(3,33,71,0.25)" }}>
                 <button onClick={() => handleNavigate("prev")} disabled={filteredVoters.length <= 1}
                   style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 7, border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", fontWeight: 600, fontSize: 13, cursor: filteredVoters.length <= 1 ? "not-allowed" : "pointer", opacity: filteredVoters.length <= 1 ? 0.4 : 1 }}>
                   <ChevronRight size={14} /> הקודם
@@ -488,47 +488,6 @@ export default function TelemarketingPage() {
                     ) : null; })()}
                   </div>
                 </div>
-              </div>
-
-              {/* Personal reminder */}
-              <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #f1f5f9", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", padding: "16px 22px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-                  <h3 style={{ margin: 0, color: "#032147", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(32,157,215,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <Bell size={13} color="#209dd7" />
-                    </div>
-                    תזכורת אישית
-                  </h3>
-                  {reminderSaved
-                    ? <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#16a34a", fontSize: 13, fontWeight: 600 }}><CheckCircle2 size={14} /> התזכורת נשמרה</span>
-                    : !showReminder && (
-                      <button type="button" onClick={() => setShowReminder(true)}
-                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid var(--blue-primary, #209dd7)", background: "#fff", color: "#209dd7", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                        <Bell size={13} /> הוסף תזכורת
-                      </button>
-                    )}
-                </div>
-                {showReminder && (
-                  <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-                    <textarea value={reminderText} onChange={(e) => setReminderText(e.target.value)} rows={2}
-                      placeholder="למשל: ביקש שנחזור אליו בנושא הארנונה"
-                      style={{ width: "100%", padding: "9px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
-                    <div>
-                      <label style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 8 }}>מועד התזכורת (אופציונלי):</label>
-                      <DateTimePicker value={reminderDue} onChange={setReminderDue} />
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" onClick={saveReminder} disabled={!reminderText.trim()}
-                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, border: "none", background: reminderText.trim() ? "#209dd7" : "#e5e7eb", color: reminderText.trim() ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: 13, cursor: reminderText.trim() ? "pointer" : "not-allowed" }}>
-                        <Bell size={13} /> שמור תזכורת
-                      </button>
-                      <button type="button" onClick={() => { setShowReminder(false); setReminderText(""); setReminderDue(""); }}
-                        style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid var(--border, #e2e8f0)", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
-                        ביטול
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Call form */}
@@ -613,6 +572,47 @@ export default function TelemarketingPage() {
                     )}
                   </div>
                 </form>
+              </div>
+
+              {/* Personal reminder */}
+              <div style={{ background: "#fff", borderRadius: 14, border: "1.5px solid #f1f5f9", boxShadow: "0 2px 12px rgba(0,0,0,0.06)", padding: "16px 22px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+                  <h3 style={{ margin: 0, color: "#032147", fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, background: "rgba(32,157,215,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Bell size={13} color="#209dd7" />
+                    </div>
+                    תזכורת אישית
+                  </h3>
+                  {reminderSaved
+                    ? <span style={{ display: "flex", alignItems: "center", gap: 5, color: "#16a34a", fontSize: 13, fontWeight: 600 }}><CheckCircle2 size={14} /> התזכורת נשמרה</span>
+                    : !showReminder && (
+                      <button type="button" onClick={() => setShowReminder(true)}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 8, border: "1.5px solid var(--blue-primary, #209dd7)", background: "#fff", color: "#209dd7", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                        <Bell size={13} /> הוסף תזכורת
+                      </button>
+                    )}
+                </div>
+                {showReminder && (
+                  <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <textarea value={reminderText} onChange={(e) => setReminderText(e.target.value)} rows={2}
+                      placeholder="למשל: ביקש שנחזור אליו בנושא הארנונה"
+                      style={{ width: "100%", padding: "9px 10px", border: "1.5px solid #e2e8f0", borderRadius: 8, fontSize: 13, outline: "none", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} />
+                    <div>
+                      <label style={{ display: "block", fontSize: 12, color: "#64748b", fontWeight: 600, marginBottom: 8 }}>מועד התזכורת (אופציונלי):</label>
+                      <DateTimePicker value={reminderDue} onChange={setReminderDue} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button type="button" onClick={saveReminder} disabled={!reminderText.trim()}
+                        style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, border: "none", background: reminderText.trim() ? "#209dd7" : "#e5e7eb", color: reminderText.trim() ? "#fff" : "#9ca3af", fontWeight: 700, fontSize: 13, cursor: reminderText.trim() ? "pointer" : "not-allowed" }}>
+                        <Bell size={13} /> שמור תזכורת
+                      </button>
+                      <button type="button" onClick={() => { setShowReminder(false); setReminderText(""); setReminderDue(""); }}
+                        style={{ padding: "8px 16px", borderRadius: 8, border: "1.5px solid var(--border, #e2e8f0)", background: "#fff", color: "#64748b", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                        ביטול
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* History */}
