@@ -4,6 +4,7 @@ import { useEffect, useState, ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
+import { canAccess, homePath } from "@/lib/permissions";
 import Sidebar from "@/components/layout/Sidebar";
 import LoadingWrapper from "@/components/layout/LoadingWrapper";
 import { Menu } from "lucide-react";
@@ -30,6 +31,14 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
     setSidebarOpen(false);
   }, [pathname]);
 
+  // Role-based route guard: if a user reaches a screen their role may not
+  // access (e.g. via a direct URL), send them to their home screen.
+  useEffect(() => {
+    if (!loading && currentUser && !isPublicPage && !canAccess(currentUser.role, pathname)) {
+      router.replace(homePath(currentUser.role));
+    }
+  }, [loading, currentUser, isPublicPage, pathname, router]);
+
   if (isPublicPage) {
     return <>{children}</>;
   }
@@ -39,6 +48,12 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   }
 
   if (!currentUser) {
+    return null;
+  }
+
+  // Hard block: never render a screen the role may not access, even for a
+  // single frame or via a direct URL. The effect above handles the redirect.
+  if (!canAccess(currentUser.role, pathname)) {
     return null;
   }
 
