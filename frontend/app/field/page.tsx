@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { ConversationLog, Voter } from "@/types";
+import { ConversationLog, Voter, Group } from "@/types";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import {
@@ -145,16 +145,10 @@ export default function FieldPage() {
   }, [selected]);
 
   const groupName = (id: string) => groups.find((g) => g.id === id)?.name ?? "";
-  // The group leader of the voter's first group that has one.
-  const voterGroupLeaderName = (v: Voter) => {
-    for (const gid of v.groupIds) {
-      const g = groups.find((x) => x.id === gid);
-      if (g?.groupLeaderId) {
-        const gl = groupLeaders.find((l) => l.id === g.groupLeaderId);
-        if (gl) return `${gl.firstName} ${gl.lastName}`.trim();
-      }
-    }
-    return "";
+  const groupLeaderNameFor = (g: Group) => {
+    if (!g.groupLeaderId) return "";
+    const gl = groupLeaders.find((l) => l.id === g.groupLeaderId);
+    return gl ? `${gl.firstName} ${gl.lastName}`.trim() : "";
   };
   const callStatusName = (id: string) => callStatuses.find((c) => c.id === id)?.name ?? id;
   const statusName = (id: string) => statuses.find((s) => s.id === id)?.name ?? id;
@@ -260,20 +254,27 @@ export default function FieldPage() {
         </div>
       </div>
 
-      {/* Group filter chips */}
-      {myGroups.length > 1 && (
+      {/* Group filter chips — leader shown once, next to each group name */}
+      {myGroups.length > 0 && (
         <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           <Filter size={13} color="#94a3b8" />
-          <button onClick={() => setGroupFilter("")}
-            style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: groupFilter === "" ? "#032147" : "#eef1f5", color: groupFilter === "" ? "#fff" : "#475569" }}>
-            הכל
-          </button>
-          {myGroups.map((g) => (
-            <button key={g.id} onClick={() => setGroupFilter(g.id)}
-              style={{ padding: "4px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: groupFilter === g.id ? "#032147" : "#eef1f5", color: groupFilter === g.id ? "#fff" : "#475569" }}>
-              {g.name}
+          {myGroups.length > 1 && (
+            <button onClick={() => setGroupFilter("")}
+              style={{ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: groupFilter === "" ? "#032147" : "#eef1f5", color: groupFilter === "" ? "#fff" : "#475569" }}>
+              הכל
             </button>
-          ))}
+          )}
+          {myGroups.map((g) => {
+            const leader = groupLeaderNameFor(g);
+            const active = groupFilter === g.id;
+            return (
+              <button key={g.id} onClick={() => setGroupFilter(active ? "" : g.id)}
+                style={{ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: active ? "#032147" : "#eef1f5", color: active ? "#fff" : "#475569" }}>
+                {g.name}
+                {leader && <span style={{ fontWeight: 400, opacity: 0.85 }}> · ראש קבוצה: {leader}</span>}
+              </button>
+            );
+          })}
         </div>
       )}
 
@@ -306,11 +307,6 @@ export default function FieldPage() {
                   <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {v.groupIds.map(groupName).filter(Boolean).join(" · ") || buildAddress(v)}
                   </div>
-                  {voterGroupLeaderName(v) && (
-                    <div style={{ fontSize: 10, color: "#753991", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
-                      ראש קבוצה: {voterGroupLeaderName(v)}
-                    </div>
-                  )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
                   {st && (
