@@ -46,7 +46,7 @@ const emptyUser = (): Omit<AppUser, "id" | "createdAt" | "isFrozen"> => ({
 });
 
 export default function UsersPage() {
-  const { state, updateUser, freezeUser, refreshUsers } = useStore();
+  const { state, freezeUser, refreshUsers } = useStore();
   const { currentUser } = useAuth();
   const { users } = state;
   const isAdmin = currentUser?.role === "admin";
@@ -97,17 +97,6 @@ export default function UsersPage() {
     e.preventDefault();
     setFormError(null);
 
-    // Editing an existing user: profile fields (name / phone / role) are
-    // written client-side. (Note: this does not change the Firebase Auth
-    // password or the role custom claim — those live in Firebase Auth.)
-    if (editing) {
-      updateUser({ ...editing, ...form });
-      setShowForm(false);
-      return;
-    }
-
-    // New user: go through the server route so a real Firebase Auth account
-    // and role claim are created — exactly the same auth flow as everyone else.
     setSubmitting(true);
     try {
       const idToken = await auth.currentUser?.getIdToken();
@@ -117,6 +106,41 @@ export default function UsersPage() {
         return;
       }
 
+      // Editing an existing user: update the REAL Firebase Auth account
+      // (password + role) plus the Firestore profile, via the server route.
+      // Leaving the password field empty keeps the current password.
+      if (editing) {
+        const res = await fetch("/api/admin/update-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            idToken,
+            uid: editing.id,
+            firstName: form.firstName,
+            lastName: form.lastName,
+            phone: form.phone,
+            role: form.role,
+            password: form.password, // empty string => unchanged
+          }),
+        });
+        const data = await res.json().catch(() => ({} as { error?: string }));
+        if (!res.ok) {
+          const raw = (data as { error?: string }).error || "";
+          let msg = raw === "forbidden" ? "אין לך הרשאת מנהל לעדכון משתמשים."
+                  : `עדכון המשתמש נכשל: ${raw || res.status}`;
+          if (raw.includes("user-not-found")) msg = "למשתמש זה אין חשבון התחברות פעיל לעדכון.";
+          if (raw.includes("invalid-password") || raw.includes("PASSWORD")) msg = "הסיסמה חייבת להכיל לפחות 6 תווים.";
+          setFormError(msg);
+          setSubmitting(false);
+          return;
+        }
+        await refreshUsers();
+        setSubmitting(false);
+        setShowForm(false);
+        return;
+      }
+
+      // New user: create a real Firebase Auth account + role claim + profile.
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,7 +177,7 @@ export default function UsersPage() {
       setSubmitting(false);
       setShowForm(false);
     } catch {
-      setFormError("שגיאת רשת ביצירת המשתמש. נסה שוב.");
+      setFormError("שגיאת רשת. נסה שוב.");
       setSubmitting(false);
     }
   };
