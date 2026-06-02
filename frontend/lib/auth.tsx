@@ -57,17 +57,6 @@ function clearSession() {
   localStorage.removeItem(ACTIVITY_KEY);
 }
 
-// A single reusable invisible reCAPTCHA for the login MFA flow. reCAPTCHA must
-// not be re-rendered in the same element, so we create it once and reuse it for
-// both the first code and any "resend".
-let loginRecaptcha: RecaptchaVerifier | null = null;
-function getLoginRecaptcha(): RecaptchaVerifier {
-  if (!loginRecaptcha) {
-    loginRecaptcha = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
-  }
-  return loginRecaptcha;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { state, refreshUsers } = useStore();
 
@@ -181,9 +170,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e: unknown) {
       // ── Two-factor required: send the SMS and ask the page for the code ──────
       if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
+        // Fresh invisible reCAPTCHA each time, cleared after use — so both the
+        // first code AND a "resend" work (reCAPTCHA can't be re-rendered in the
+        // same element, so we never keep a stale instance around).
+        const verifier = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
         try {
           const resolver = getMultiFactorResolver(fbAuth, e as Parameters<typeof getMultiFactorResolver>[1]);
-          const verifier = getLoginRecaptcha();
           const phoneProvider = new PhoneAuthProvider(fbAuth);
           const verificationId = await phoneProvider.verifyPhoneNumber(
             { multiFactorHint: resolver.hints[0], session: resolver.session },
@@ -193,6 +185,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return "mfa";
         } catch {
           return "invalid";
+        } finally {
+          try { verifier.clear(); } catch {}
         }
       }
       // ── Fallback: legacy Firestore check (transition safety net) ────────────

@@ -42,12 +42,10 @@ export default function EnrollMfaPage() {
       const user = auth.currentUser;
       if (!user) { router.replace("/login"); return; }
       const e164 = toE164Israel(phone);
-      // Create the invisible reCAPTCHA once and reuse it (it cannot be
-      // re-rendered in the same element), so "resend" works.
-      if (!verifierRef.current) {
-        verifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-      }
-      const verifier = verifierRef.current;
+      // Fresh invisible reCAPTCHA each time; cleared in finally so a "resend"
+      // can create a new one (reCAPTCHA can't be re-rendered in the same element).
+      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+      verifierRef.current = verifier;
       const session = await multiFactor(user).getSession();
       const provider = new PhoneAuthProvider(auth);
       const id = await provider.verifyPhoneNumber({ phoneNumber: e164, session }, verifier);
@@ -57,6 +55,7 @@ export default function EnrollMfaPage() {
       const code = (err as { code?: string })?.code || "";
       setError(code.includes("invalid-phone") ? "מספר הטלפון אינו תקין." : "שליחת הקוד נכשלה. בדוק את המספר ונסה שוב.");
     } finally {
+      try { verifierRef.current?.clear(); } catch {}
       setBusy(false);
     }
   };
