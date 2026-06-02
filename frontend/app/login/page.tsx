@@ -65,6 +65,21 @@ export default function LoginPage() {
     }
   };
 
+  const [resent, setResent] = useState(false);
+  const handleResend = async () => {
+    setLoading(true); setError(""); setResent(false);
+    try {
+      const result = await login(email, password);
+      if (result === "mfa") { setResent(true); setCode(""); }
+      else if (result === "ok") { router.replace("/dashboard"); }
+      else { setError("שליחת קוד חדש נכשלה. התחבר מחדש."); }
+    } catch {
+      setError("שגיאה בשליחת קוד חדש.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -196,6 +211,7 @@ export default function LoginPage() {
         <form onSubmit={handleMfa}>
           <div style={{ marginBottom: 18, textAlign: "center", color: "#475569", fontSize: 14, lineHeight: 1.6 }}>
             שלחנו קוד אימות ב-SMS לטלפון שלך.<br />הזן אותו כדי להשלים את הכניסה.
+            {resent && <div style={{ color: "#16a34a", fontSize: 13, marginTop: 6 }}>קוד חדש נשלח ✓</div>}
           </div>
           <div style={{ marginBottom: 18 }}>
             <label className="label">קוד אימות</label>
@@ -225,6 +241,10 @@ export default function LoginPage() {
             style={{ width: "100%", padding: "13px", background: loading ? "#93c5fd" : "linear-gradient(135deg, #209dd7, #1a7fad)", color: "#fff", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 4px 14px rgba(32,157,215,0.3)" }}
           >
             {loading ? "מאמת..." : "אישור והתחברות"}
+          </button>
+          <button type="button" onClick={handleResend} disabled={loading}
+            style={{ width: "100%", marginTop: 12, background: "none", border: "none", color: "#209dd7", fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}>
+            שלח קוד מחדש
           </button>
         </form>
         )}

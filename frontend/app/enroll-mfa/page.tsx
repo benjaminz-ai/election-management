@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { auth } from "@/lib/firebase";
@@ -22,6 +22,7 @@ export default function EnrollMfaPage() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [alreadyEnrolled, setAlreadyEnrolled] = useState(false);
+  const verifierRef = useRef<RecaptchaVerifier | null>(null);
 
   // Pre-fill the phone from the user's profile (normalized to +972...).
   useEffect(() => {
@@ -34,14 +35,16 @@ export default function EnrollMfaPage() {
     if (u && multiFactor(u).enrolledFactors.length > 0) setAlreadyEnrolled(true);
   }, []);
 
-  const sendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendCode = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     setError(""); setBusy(true);
     try {
       const user = auth.currentUser;
       if (!user) { router.replace("/login"); return; }
       const e164 = toE164Israel(phone);
+      if (verifierRef.current) { try { verifierRef.current.clear(); } catch {} }
       const verifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+      verifierRef.current = verifier;
       const session = await multiFactor(user).getSession();
       const provider = new PhoneAuthProvider(auth);
       const id = await provider.verifyPhoneNumber({ phoneNumber: e164, session }, verifier);
@@ -128,9 +131,9 @@ export default function EnrollMfaPage() {
             <button type="submit" disabled={busy} style={btn}>
               {busy ? <Loader2 size={15} className="spin" style={{ verticalAlign: "middle" }} /> : "אישור והפעלה"}
             </button>
-            <button type="button" onClick={() => { setStep("phone"); setCode(""); setError(""); }}
-              style={{ width: "100%", marginTop: 10, background: "none", border: "none", color: "#64748b", fontSize: 13, cursor: "pointer" }}>
-              חזרה
+            <button type="button" onClick={() => sendCode()} disabled={busy}
+              style={{ width: "100%", marginTop: 12, background: "none", border: "none", color: "#209dd7", fontSize: 13, fontWeight: 600, cursor: busy ? "not-allowed" : "pointer" }}>
+              שלח קוד מחדש
             </button>
           </form>
         )}

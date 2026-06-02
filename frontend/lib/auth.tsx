@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   refreshUsersRef.current = refreshUsers;
 
   // Holds the in-progress MFA challenge between login() and completeMfa().
-  const mfaRef = useRef<{ resolver: MultiFactorResolver; verificationId: string } | null>(null);
+  const mfaRef = useRef<{ resolver: MultiFactorResolver; verificationId: string; verifier?: RecaptchaVerifier } | null>(null);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -165,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // ── Two-factor required: send the SMS and ask the page for the code ──────
       if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
         try {
+          if (mfaRef.current?.verifier) { try { mfaRef.current.verifier.clear(); } catch {} }
           const resolver = getMultiFactorResolver(fbAuth, e as Parameters<typeof getMultiFactorResolver>[1]);
           const verifier = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
           const phoneProvider = new PhoneAuthProvider(fbAuth);
@@ -172,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             { multiFactorHint: resolver.hints[0], session: resolver.session },
             verifier
           );
-          mfaRef.current = { resolver, verificationId };
+          mfaRef.current = { resolver, verificationId, verifier };
           return "mfa";
         } catch {
           return "invalid";
