@@ -4,14 +4,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
+import { auth } from "@/lib/firebase";
 import { AppUser, UserRole } from "@/types";
 import PageHeader from "@/components/ui/PageHeader";
 import { Plus, Pencil, Snowflake, PlayCircle, Users, Phone, Mail, Eye, EyeOff, Search, X, ShieldCheck, Briefcase, Headphones, UserCheck, Shield } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
-
-const generateId = () => `usr_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 
 const ROLE_LABELS: Record<UserRole, string> = {
   admin: "מנהל מערכת",
@@ -47,7 +46,7 @@ const emptyUser = (): Omit<AppUser, "id" | "createdAt" | "isFrozen"> => ({
 });
 
 export default function UsersPage() {
-  const { state, addUser, updateUser, freezeUser } = useStore();
+  const { state, updateUser, freezeUser, refreshUsers } = useStore();
   const { currentUser } = useAuth();
   const { users } = state;
   const isAdmin = currentUser?.role === "admin";
@@ -65,6 +64,8 @@ export default function UsersPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     let list = users;
@@ -82,19 +83,79 @@ export default function UsersPage() {
 
   const { visible: visibleUsers, hasMore, loadMore, showing, total } = usePagination(filtered);
 
-  const openAdd = () => { setForm(emptyUser()); setEditing(null); setShowPassword(false); setShowForm(true); };
+  const openAdd = () => { setForm(emptyUser()); setEditing(null); setShowPassword(false); setFormError(null); setSubmitting(false); setShowForm(true); };
   const openEdit = (u: AppUser) => {
     setForm({ firstName: u.firstName, lastName: u.lastName, email: u.email, phone: u.phone, role: u.role, password: u.password });
     setEditing(u);
     setShowPassword(false);
+    setFormError(null);
+    setSubmitting(false);
     setShowForm(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) { updateUser({ ...editing, ...form }); }
-    else { addUser({ ...form, id: generateId(), createdAt: new Date().toISOString(), isFrozen: false }); }
-    setShowForm(false);
+    setFormError(null);
+
+    // Editing an existing user: profile fields (name / phone / role) are
+    // written client-side. (Note: this does not change the Firebase Auth
+    // password or the role custom claim — those live in Firebase Auth.)
+    if (editing) {
+      updateUser({ ...editing, ...form });
+      setShowForm(false);
+      return;
+    }
+
+    // New user: go through the server route so a real Firebase Auth account
+    // and role claim are created — exactly the same auth flow as everyone else.
+    setSubmitting(true);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) {
+        setFormError("פג תוקף ההתחברות — התנתק והתחבר מחדש ונסה שוב.");
+        setSubmitting(false);
+        return;
+      }
+
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idToken,
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          phone: form.phone,
+          role: form.role,
+          password: form.password,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) {
+        const map: Record<string, string> = {
+          forbidden: "אין לך הרשאת מנהל ליצירת משתמשים.",
+          "missing fields": "חסרים שדות חובה.",
+          "missing token": "פג תוקף ההתחברות — התחבר מחדש.",
+        };
+        const raw = (data as { error?: string }).error || "";
+        let msg = map[raw] || `יצירת המשתמש נכשלה: ${raw || res.status}`;
+        if (raw.includes("email-already-exists")) msg = "כתובת האימייל כבר קיימת במערכת.";
+        if (raw.includes("invalid-password") || raw.includes("PASSWORD")) msg = "הסיסמה חייבת להכיל לפחות 6 תווים.";
+        if (raw.includes("invalid-email")) msg = "כתובת האימייל אינה תקינה.";
+        setFormError(msg);
+        setSubmitting(false);
+        return;
+      }
+
+      // Reload the roster so the new uid-keyed profile shows up.
+      await refreshUsers();
+      setSubmitting(false);
+      setShowForm(false);
+    } catch {
+      setFormError("שגיאת רשת ביצירת המשתמש. נסה שוב.");
+      setSubmitting(false);
+    }
   };
 
   const handleFreeze = (u: AppUser) => {
@@ -380,9 +441,20 @@ export default function UsersPage() {
                   </button>
                 </div>
               </div>
+              {formError && (
+                <div style={{
+                  marginBottom: 14, padding: "10px 14px",
+                  background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.3)",
+                  borderRadius: 10, fontSize: 13, color: "#b91c1c"
+                }}>
+                  {formError}
+                </div>
+              )}
               <div className="modal-footer">
-                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>ביטול</button>
-                <button type="submit" className="btn-primary">{editing ? "שמור שינויים" : "הוסף משתמש"}</button>
+                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)} disabled={submitting}>ביטול</button>
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? "יוצר…" : editing ? "שמור שינויים" : "הוסף משתמש"}
+                </button>
               </div>
             </form>
           </div>

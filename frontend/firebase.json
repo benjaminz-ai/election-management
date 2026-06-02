@@ -4,5 +4,8 @@
       "backendId": "frontend",
       "rootDir": "."
     }
-  ]
+  ],
+  "firestore": {
+    "rules": "firestore.rules"
+  }
 }
