@@ -25,6 +25,15 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && request.auth.token.role == 'admin';
     }
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.isSuperAdmin == true;
+    }
+
+    // ---- tenants (companies): read your own (or any, for super admin) ----
+    match /tenants/{id} {
+      allow read:  if isSignedIn() && (id == request.auth.token.tenantId || isSuperAdmin());
+      allow write: if isSuperAdmin();
+    }
 
     // ---- shared campaign data: any signed-in staff member ----
     match /voters/{id}        { allow read, write: if isSignedIn(); }

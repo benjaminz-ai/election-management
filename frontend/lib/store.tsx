@@ -14,6 +14,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import {
   collection,
   getDocs,
+  getDoc,
   query,
   where,
   setDoc,
@@ -53,6 +54,8 @@ async function resolveActiveTenant(user: import("firebase/auth").User): Promise<
 type StoreContextType = {
   state: AppState;
   loading: boolean;
+  tenantName: string | null;
+  isSuperAdmin: boolean;
   addVoter: (voter: Voter) => void;
   updateVoter: (voter: Voter) => void;
   bulkUpdateVoters: (
@@ -142,6 +145,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef<AppState>(EMPTY_STATE);
   stateRef.current = state;
 
+  const [tenantName, setTenantName] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   // The active tenant for writes (kept in a ref so write helpers see it).
   const tenantIdRef = useRef<string | null>(ACTIVE_TENANT);
   // Stamp a new/updated document with the active tenant so it stays scoped.
@@ -165,7 +170,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const tid = await resolveActiveTenant(user);
         ACTIVE_TENANT = tid;
         tenantIdRef.current = tid;
-        if (!tid) { setState(EMPTY_STATE); return; }
+        try {
+          const res = await user.getIdTokenResult();
+          setIsSuperAdmin(res.claims.isSuperAdmin === true);
+        } catch {}
+        if (!tid) { setState(EMPTY_STATE); setTenantName(null); return; }
+        // Load the active company's display name.
+        try {
+          const tSnap = await getDoc(doc(db, "tenants", tid));
+          setTenantName((tSnap.data()?.name as string) ?? null);
+        } catch { setTenantName(null); }
         // Load only this tenant's data.
         const loaded = await loadFromFirestore(tid);
         setState(loaded);
@@ -695,6 +709,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         loading,
+        tenantName,
+        isSuperAdmin,
         addVoter,
         updateVoter,
         bulkUpdateVoters,

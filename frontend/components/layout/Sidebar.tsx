@@ -41,7 +41,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
   const { currentUser, logout } = useAuth();
-  const { state } = useStore();
+  const { state, tenantName, isSuperAdmin } = useStore();
   const reminderCount = state.reminders.filter((r) => r.userId === currentUser?.id && !r.done).length;
 
   // Desktop collapse state — persisted in localStorage
@@ -117,6 +117,14 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
             </button>
           )}
         </div>
+
+        {/* Active company banner */}
+        {!isCollapsed && tenantName && (
+          <div style={{ margin: "4px 12px 8px", padding: "8px 12px", borderRadius: 10, background: isSuperAdmin ? "rgba(117,57,145,0.18)" : "rgba(32,157,215,0.12)", border: `1px solid ${isSuperAdmin ? "rgba(117,57,145,0.4)" : "rgba(32,157,215,0.3)"}` }}>
+            <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600 }}>{isSuperAdmin ? "חברה פעילה" : "חברה"}</div>
+            <div style={{ fontSize: 13, color: "#fff", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tenantName}</div>
+          </div>
+        )}
 
         {/* Nav */}
         <nav style={{ flex: 1, paddingTop: 6, overflowY: "auto", overflowX: "hidden" }}>
