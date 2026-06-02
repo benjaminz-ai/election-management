@@ -6,7 +6,8 @@ import {
   getMultiFactorResolver, PhoneAuthProvider, PhoneMultiFactorGenerator,
   RecaptchaVerifier, type MultiFactorResolver,
 } from "firebase/auth";
-import { auth as fbAuth } from "./firebase";
+import { auth as fbAuth, db } from "./firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 import { useStore } from "./store";
 import { AppUser } from "@/types";
 
@@ -32,7 +33,6 @@ const SESSION_KEY = "mvp_login_at";
 const ACTIVITY_KEY = "mvp_last_activity";
 const SESSION_DURATION = 8 * 60 * 60 * 1000;      // absolute cap: 8 hours from login
 const INACTIVITY_DURATION = 30 * 60 * 1000;       // idle timeout: 30 minutes of no activity
-const USER_REFRESH_INTERVAL = 2 * 60 * 1000;      // re-check freeze/deletion every 2 minutes
 
 // Session is valid only if BOTH the absolute cap and the inactivity window hold.
 function isSessionValid(): boolean {
@@ -137,14 +137,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => events.forEach((e) => window.removeEventListener(e, onActivity));
   }, [currentUserId]);
 
-  // Periodically re-fetch users so a freeze / deletion done elsewhere is enforced
-  // on this session within a couple of minutes (not only on reload).
+  // Real-time: if THIS user is frozen (or deleted) elsewhere, log out at once.
   useEffect(() => {
     if (!currentUserId) return;
-    const interval = setInterval(() => {
-      refreshUsersRef.current();
-    }, USER_REFRESH_INTERVAL);
-    return () => clearInterval(interval);
+    const unsub = onSnapshot(
+      doc(db, "users", currentUserId),
+      (snap) => {
+        if (!snap.exists() || snap.data()?.isFrozen) {
+          clearSession();
+          setCurrentUserId(null);
+        }
+      },
+      () => {}
+    );
+    return () => unsub();
   }, [currentUserId]);
 
   const startSession = (id: string) => {
