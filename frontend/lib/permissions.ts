@@ -13,7 +13,7 @@ const FIELD_ALLOWED = ["/field", "/enroll-mfa"];
 // Set to true ONLY after the flow is verified end-to-end (so we never lock
 // users out). When true, users whose role requires MFA and who have not yet
 // enrolled a second factor are redirected to /enroll-mfa.
-export const MFA_ENFORCED = false;
+export const MFA_ENFORCED = true;
 
 // Which roles must use two-factor. Currently: everyone with an account.
 export function mfaRequiredForRole(_role?: UserRole | null): boolean {
