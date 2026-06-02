@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
   PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
-  X, ChevronRight, ChevronLeft, Bell, Contact,
+  X, ChevronRight, ChevronLeft, Bell, Contact, Building2,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { isFieldRole, canAccess } from "@/lib/permissions";
@@ -55,12 +55,16 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   }, [collapsed]);
 
   const role = currentUser?.role;
-  const links = isFieldRole(role)
+  const baseLinks = isFieldRole(role)
     // Field users: their "my people" home first, then only the screens they may reach.
     ? [fieldLink, ...commonLinks.filter((l) => canAccess(role, l.href))]
     : role === "admin"
       ? [...commonLinks, ...adminLinks]
       : commonLinks;
+  // Super admin gets the company-management screen.
+  const links = isSuperAdmin
+    ? [...baseLinks, { href: "/companies", label: "ניהול חברות", icon: Building2 }]
+    : baseLinks;
 
   const [isMobileView, setIsMobileView] = useState(false);
   useEffect(() => {
