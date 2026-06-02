@@ -4,6 +4,7 @@ import { useEffect, useState, ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { useStore } from "@/lib/store";
+import { canAccess, homePath } from "@/lib/permissions";
 import Sidebar from "@/components/layout/Sidebar";
 import LoadingWrapper from "@/components/layout/LoadingWrapper";
 import { Menu, Shield } from "lucide-react";
@@ -29,6 +30,14 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
       router.replace("/login");
     }
   }, [loading, currentUser, isPublicPage, router]);
+
+  // Role-based route guard: if a user reaches a screen their role may not
+  // access (e.g. via a direct URL), send them to their home screen.
+  useEffect(() => {
+    if (!loading && currentUser && !isPublicPage && !canAccess(currentUser.role, pathname)) {
+      router.replace(homePath(currentUser.role));
+    }
+  }, [loading, currentUser, isPublicPage, pathname, router]);
 
   if (isPublicPage) return <>{children}</>;
   if (loading) return <LoadingWrapper>{children}</LoadingWrapper>;

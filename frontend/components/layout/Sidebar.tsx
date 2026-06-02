@@ -6,9 +6,10 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
   PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
-  X, ChevronRight, ChevronLeft, Bell,
+  X, ChevronRight, ChevronLeft, Bell, Contact,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { isFieldRole, canAccess } from "@/lib/permissions";
 
 interface SidebarProps {
   isOpen?: boolean;    // mobile: controls slide-in
@@ -34,6 +35,7 @@ const commonLinks = [
   { href: "/call-statuses", label: "סטטוסי שיחה",    icon: MessageSquareMore },
 ];
 const adminLinks = [{ href: "/users", label: "משתמשים", icon: UserCog }];
+const fieldLink = { href: "/field", label: "האנשים שלי", icon: Contact };
 
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
@@ -52,9 +54,13 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     localStorage.setItem("sidebar_collapsed", String(collapsed));
   }, [collapsed]);
 
-  const links = currentUser?.role === "admin"
-    ? [...commonLinks, ...adminLinks]
-    : commonLinks;
+  const role = currentUser?.role;
+  const links = isFieldRole(role)
+    // Field users: their "my people" home first, then only the screens they may reach.
+    ? [fieldLink, ...commonLinks.filter((l) => canAccess(role, l.href))]
+    : role === "admin"
+      ? [...commonLinks, ...adminLinks]
+      : commonLinks;
 
   const [isMobileView, setIsMobileView] = useState(false);
   useEffect(() => {
