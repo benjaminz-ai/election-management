@@ -19,11 +19,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
-    // Create the auth identity (password held by Firebase, never by us)
+    // Create the auth identity (password held by Firebase, never by us).
+    // emailVerified is set so the user can enroll two-factor (MFA) — admins
+    // create accounts with known, trusted emails.
     const userRecord = await adminAuth().createUser({
       email: String(email).trim().toLowerCase(),
       password: String(password),
       displayName: `${firstName} ${lastName}`,
+      emailVerified: true,
     });
 
     // Role lives as a custom claim — this is what security rules check
