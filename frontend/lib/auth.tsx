@@ -46,8 +46,8 @@ const AuthContext = createContext<AuthCtx>({
 const STORAGE_KEY = "mvp_uid";
 const SESSION_KEY = "mvp_login_at";
 const ACTIVITY_KEY = "mvp_last_activity";
-const SESSION_DURATION = 8 * 60 * 60 * 1000;      // absolute cap: 8 hours from login
-const INACTIVITY_DURATION = 30 * 60 * 1000;       // idle timeout: 30 minutes of no activity
+const SESSION_DURATION = 24 * 60 * 60 * 1000;     // absolute cap: 24 hours from login
+const INACTIVITY_DURATION = 60 * 60 * 1000;       // idle timeout: 1 hour of no activity
 
 // Session is valid only if BOTH the absolute cap and the inactivity window hold.
 function isSessionValid(): boolean {
