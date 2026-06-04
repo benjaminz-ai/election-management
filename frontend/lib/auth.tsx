@@ -11,7 +11,14 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { useStore } from "./store";
 import { AppUser } from "@/types";
 
-export type LoginResult = "ok" | "frozen" | "invalid" | "mfa";
+// "invalid"     → wrong email/password (or legacy fallback failed)
+// "mfa"          → password OK, SMS code sent, waiting for the code
+// "sms_failed"   → password OK, but sending the SMS code failed (e.g. the
+//                  registered phone can't receive Firebase's verification SMS).
+//                  IMPORTANT: this is NOT a wrong password — see the login page.
+// "too_many"     → password OK, but Firebase temporarily blocked SMS to this
+//                  number after too many attempts (auth/too-many-requests).
+export type LoginResult = "ok" | "frozen" | "invalid" | "mfa" | "sms_failed" | "too_many";
 
 type AuthCtx = {
   currentUser: AppUser | null;
@@ -69,6 +76,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Holds the in-progress MFA challenge between login() and completeMfa().
   const mfaRef = useRef<{ resolver: MultiFactorResolver; verificationId: string; verifier?: RecaptchaVerifier } | null>(null);
+
+  // ONE persistent invisible reCAPTCHA verifier, reused for every attempt.
+  // Creating a NEW verifier and calling .clear() on each attempt is what caused
+  //   "Uncaught TypeError: Cannot read properties of null (reading 'style')"
+  //   in recaptcha__iw.js
+  // which silently broke SMS sending (verifyPhoneNumber threw → the app showed
+  // a misleading "wrong password"). We create it lazily, once, and never clear it.
+  const recaptchaRef = useRef<RecaptchaVerifier | null>(null);
+  const getRecaptcha = useCallback((): RecaptchaVerifier => {
+    if (!recaptchaRef.current) {
+      recaptchaRef.current = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
+    }
+    return recaptchaRef.current;
+  }, []);
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -152,15 +173,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
-    // Refresh users so freeze/profile changes are reflected immediately.
-    await refreshUsersRef.current();
-    const users = usersRef.current;
     const normalizedEmail = email.trim().toLowerCase();
 
     // ── Primary path: Firebase Authentication ────────────────────────────────
     try {
       const cred = await signInWithEmailAndPassword(fbAuth, normalizedEmail, password);
       const uid = cred.user.uid;
+      // NOW authenticated — only now is it safe to read the tenant-scoped users
+      // list. Reading it BEFORE sign-in caused the console error
+      //   "refreshUsers failed FirebaseError: Missing or insufficient permissions"
+      // because Firestore rules require an authenticated request.
+      await refreshUsersRef.current();
+      const users = usersRef.current;
       // Profile is keyed by the Firebase uid; fall back to email match if needed.
       const profile = users.find((u) => u.id === uid)
         ?? users.find((u) => u.email.toLowerCase() === normalizedEmail);
@@ -170,11 +194,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e: unknown) {
       // ── Two-factor required: send the SMS and ask the page for the code ──────
       if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
-        // Fresh invisible reCAPTCHA each time, cleared after use — so both the
-        // first code AND a "resend" work (reCAPTCHA can't be re-rendered in the
-        // same element, so we never keep a stale instance around).
-        const verifier = new RecaptchaVerifier(fbAuth, "recaptcha-container", { size: "invisible" });
+        // Reuse the ONE persistent invisible reCAPTCHA (see getRecaptcha).
+        // Do NOT create-and-clear a new verifier per attempt — that is what
+        // crashed recaptcha__iw.js ("Cannot read properties of null") and
+        // silently broke SMS sending for already-enrolled users.
         try {
+          const verifier = getRecaptcha();
+          await verifier.render(); // idempotent; guarantees the widget exists
           const resolver = getMultiFactorResolver(fbAuth, e as Parameters<typeof getMultiFactorResolver>[1]);
           const phoneProvider = new PhoneAuthProvider(fbAuth);
           const verificationId = await phoneProvider.verifyPhoneNumber(
@@ -183,13 +209,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           );
           mfaRef.current = { resolver, verificationId };
           return "mfa";
-        } catch {
-          return "invalid";
-        } finally {
-          try { verifier.clear(); } catch {}
+        } catch (smsErr: unknown) {
+          // The password was already accepted (that's why we're inside the
+          // multi-factor branch). What failed here is SENDING the SMS code
+          // (most often a reCAPTCHA failure). Do NOT report this as "invalid" —
+          // that would show a misleading "wrong password" message.
+          const smsCode = (smsErr as { code?: string })?.code || "";
+          console.error("MFA SMS send failed (password was valid):", smsCode || smsErr);
+          if (smsCode === "auth/too-many-requests") return "too_many";
+          return "sms_failed";
         }
       }
       // ── Fallback: legacy Firestore check (transition safety net) ────────────
+      // Best-effort; the users list may be empty here (rules require auth).
+      const users = usersRef.current;
       const user = users.find((u) => u.email.toLowerCase() === normalizedEmail && u.password === password);
       if (!user) return "invalid";
       if (user.isFrozen) return "frozen";
@@ -235,3 +268,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
+// end of auth.tsx

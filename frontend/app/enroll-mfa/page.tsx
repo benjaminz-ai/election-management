@@ -42,10 +42,14 @@ export default function EnrollMfaPage() {
       const user = auth.currentUser;
       if (!user) { router.replace("/login"); return; }
       const e164 = toE164Israel(phone);
-      // Fresh invisible reCAPTCHA each time; cleared in finally so a "resend"
-      // can create a new one (reCAPTCHA can't be re-rendered in the same element).
-      const verifier = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
-      verifierRef.current = verifier;
+      // Reuse ONE persistent invisible reCAPTCHA. Creating a new verifier and
+      // calling .clear() on every attempt crashed recaptcha__iw.js
+      // ("Cannot read properties of null (reading 'style')") and broke sending.
+      if (!verifierRef.current) {
+        verifierRef.current = new RecaptchaVerifier(auth, "recaptcha-container", { size: "invisible" });
+      }
+      const verifier = verifierRef.current;
+      await verifier.render(); // idempotent; guarantees the widget exists
       const session = await multiFactor(user).getSession();
       const provider = new PhoneAuthProvider(auth);
       const id = await provider.verifyPhoneNumber({ phoneNumber: e164, session }, verifier);
@@ -55,7 +59,6 @@ export default function EnrollMfaPage() {
       const code = (err as { code?: string })?.code || "";
       setError(code.includes("invalid-phone") ? "מספר הטלפון אינו תקין." : "שליחת הקוד נכשלה. בדוק את המספר ונסה שוב.");
     } finally {
-      try { verifierRef.current?.clear(); } catch {}
       setBusy(false);
     }
   };
@@ -154,3 +157,4 @@ const errBox: React.CSSProperties = {
   background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px",
   fontSize: 13, color: "#dc2626", marginBottom: 16, textAlign: "center",
 };
+// end of enroll-mfa/page.tsx

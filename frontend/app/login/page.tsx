@@ -35,6 +35,12 @@ export default function LoginPage() {
         setMfaStep(true);
       } else if (result === "frozen") {
         setError("חשבון זה הוקפא. פנה למנהל המערכת.");
+      } else if (result === "too_many") {
+        // Password was correct; Firebase temporarily blocked SMS to this number.
+        setError("הסיסמה אומתה, אך שליחת קוד האימות נחסמה זמנית עקב ריבוי ניסיונות. המתן מספר דקות ונסה שוב.");
+      } else if (result === "sms_failed") {
+        // Password was correct; the SMS code could not be sent to the registered number.
+        setError("הסיסמה אומתה, אך שליחת קוד ה-SMS למספר הרשום נכשלה. פנה למנהל המערכת לבדיקת מספר הטלפון לאימות.");
       } else {
         setError("אימייל או סיסמה שגויים.");
       }
@@ -72,6 +78,8 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (result === "mfa") { setResent(true); setCode(""); }
       else if (result === "ok") { router.replace("/dashboard"); }
+      else if (result === "too_many") { setError("יותר מדי ניסיונות. המתן מספר דקות לפני שליחת קוד חדש."); }
+      else if (result === "sms_failed") { setError("שליחת הקוד נכשלה. ייתכן שמספר הטלפון הרשום אינו יכול לקבל SMS — פנה למנהל המערכת."); }
       else { setError("שליחת קוד חדש נכשלה. נסה שוב בעוד מספר שניות."); }
     } catch {
       setError("שגיאה בשליחת קוד חדש.");
