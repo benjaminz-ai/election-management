@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap');
+
+:root{
+  --yellow:#ecad0a;
+  --blue:#209dd7;
+  --purple:#753991;
+  --navy:#032147;
+  --gray:#888888;
+  --light:#f4f7fb;
+}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Heebo',sans-serif;}
+body{color:var(--navy);background:#5a6473;}
+
+.page{
+  width:210mm;height:297mm;background:#fff;margin:0 auto;
+  position:relative;overflow:hidden;page-break-after:always;
+}
+.page:last-child{page-break-after:auto;}
+
+/* ---------- COVER ---------- */
+.cover{
+  background:linear-gradient(150deg,#032147 0%,#0a3a6b 55%,#125a93 100%);
+  color:#fff;display:flex;flex-direction:column;
+}
+.cover-top{padding:24mm 20mm 0;}
+.cover .kicker{
+  color:var(--yellow);font-weight:700;letter-spacing:3px;font-size:13px;
+  text-transform:uppercase;margin-bottom:14mm;
+}
+.cover h1{font-size:58px;font-weight:900;line-height:1.05;}
+.cover h1 .accent{color:var(--yellow);}
+.cover .sub{
+  font-size:21px;font-weight:300;color:#cfe3f3;margin-top:8mm;max-width:150mm;line-height:1.6;
+}
+.cover-deco{position:absolute;top:-40mm;left:-40mm;width:130mm;height:130mm;
+  border-radius:50%;background:rgba(32,157,215,.18);}
+.cover-deco2{position:absolute;bottom:30mm;left:-30mm;width:90mm;height:90mm;
+  border-radius:50%;background:rgba(236,173,10,.14);}
+.cover-strip{margin-top:auto;display:flex;}
+.cover-strip div{height:8mm;flex:1;}
+.cs1{background:var(--yellow);}.cs2{background:var(--blue);}.cs3{background:var(--purple);}
+.cover-foot{padding:10mm 20mm 14mm;display:flex;justify-content:space-between;align-items:flex-end;}
+.cover-foot .badge{
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);
+  padding:5mm 8mm;border-radius:10px;backdrop-filter:blur(4px);
+}
+.cover-foot .badge b{color:var(--yellow);font-size:26px;display:block;}
+.cover-foot .badge span{font-size:13px;color:#cfe3f3;}
+
+/* ---------- GENERIC ---------- */
+.body-page{padding:18mm 18mm 16mm;}
+.section-tag{
+  display:inline-block;color:var(--purple);font-weight:700;font-size:13px;
+  letter-spacing:2px;text-transform:uppercase;border-right:4px solid var(--yellow);
+  padding-right:8px;margin-bottom:6mm;
+}
+h2.title{font-size:32px;font-weight:900;color:var(--navy);line-height:1.15;margin-bottom:4mm;}
+p.lead{font-size:15px;line-height:1.7;color:#42526b;margin-bottom:4mm;}
+.pagenum{position:absolute;bottom:9mm;left:18mm;color:var(--gray);font-size:12px;}
+.pagebrand{position:absolute;bottom:9mm;right:18mm;color:var(--navy);font-size:12px;font-weight:700;}
+.pagebrand span{color:var(--yellow);}
+
+/* feature grid */
+.feat-grid{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:3mm;}
+.feat{background:var(--light);border-radius:14px;padding:5mm;border-top:4px solid var(--blue);}
+.feat:nth-child(2){border-top-color:var(--yellow);}
+.feat:nth-child(3){border-top-color:var(--purple);}
+.feat:nth-child(4){border-top-color:var(--navy);}
+.feat .ico{width:11mm;height:11mm;border-radius:10px;background:#fff;
+  display:flex;align-items:center;justify-content:center;margin-bottom:3mm;
+  box-shadow:0 4px 14px rgba(3,33,71,.1);}
+.feat h3{font-size:18px;font-weight:700;margin-bottom:1.5mm;}
+.feat p{font-size:13px;line-height:1.6;color:#54627a;}
+
+/* hierarchy diagram */
+.hier{display:flex;flex-direction:column;align-items:center;gap:0;margin-top:4mm;}
+.hier .node{padding:3mm 8mm;border-radius:10px;font-weight:700;font-size:14px;color:#fff;box-shadow:0 5px 16px rgba(3,33,71,.15);}
+.hier .conn{width:2px;height:5mm;background:#c4d2e2;}
+.n-nav{background:var(--navy);}.n-blue{background:var(--blue);}
+.n-purple{background:var(--purple);}.n-yellow{background:var(--yellow);color:var(--navy)!important;}
+.hier .label{font-size:12px;color:var(--gray);margin-bottom:1mm;font-weight:500;}
+
+/* ---------- MOCKUP CHROME ---------- */
+.mock{border:1px solid #dbe4ef;border-radius:14px;overflow:hidden;
+  box-shadow:0 14px 40px rgba(3,33,71,.16);background:#fff;}
+.mock-bar{background:#eef3f9;padding:3mm 4mm;display:flex;align-items:center;gap:5px;border-bottom:1px solid #dbe4ef;}
+.dot{width:10px;height:10px;border-radius:50%;}
+.dr{background:#ff5f56;}.dy{background:#ffbd2e;}.dg{background:#27c93f;}
+.mock-url{margin-right:8px;background:#fff;border-radius:6px;padding:2px 12px;font-size:11px;color:var(--gray);flex:1;text-align:right;}
+.app{display:flex;min-height:112mm;}
+.side{width:42mm;background:var(--navy);color:#fff;padding:5mm 4mm;}
+.side .logo{font-weight:900;font-size:17px;margin-bottom:7mm;}
+.side .logo span{color:var(--yellow);}
+.side .nav-i{padding:2.6mm 3mm;border-radius:8px;font-size:12.5px;color:#b9c8da;margin-bottom:1.5mm;display:flex;align-items:center;gap:7px;}
+.side .nav-i.active{background:rgba(32,157,215,.22);color:#fff;font-weight:700;}
+.side .nav-i .d{width:7px;height:7px;border-radius:2px;background:var(--blue);}
+.side .nav-i.active .d{background:var(--yellow);}
+.main{flex:1;padding:6mm;background:#fafcfe;}
+.main h4{font-size:20px;font-weight:900;color:var(--navy);margin-bottom:4mm;}
+
+/* stat cards */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm;margin-bottom:5mm;}
+.stat{background:#fff;border-radius:11px;padding:4mm;border:1px solid #e7eef6;}
+.stat b{font-size:26px;font-weight:900;display:block;line-height:1;}
+.stat span{font-size:11px;color:var(--gray);}
+.s1 b{color:var(--blue);}.s2 b{color:var(--yellow);}.s3 b{color:var(--purple);}.s4 b{color:var(--navy);}
+
+table.tbl{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:11.5px;border:1px solid #e7eef6;}
+table.tbl th{background:#f0f5fa;color:var(--navy);font-weight:700;text-align:right;padding:3mm;font-size:11px;}
+table.tbl td{padding:2.8mm 3mm;border-top:1px solid #eef3f8;color:#46566c;}
+.pill{display:inline-block;padding:1px 9px;border-radius:20px;font-size:10px;font-weight:700;}
+.pill-g{background:#e3f7e8;color:#1d8a3b;}
+.pill-r{background:#fde5e5;color:#c0392b;}
+.pill-a{background:#fdf2d9;color:#b8860b;}
+.pill-b{background:#e2f1fb;color:#1c7aad;}
+
+.btn-p{background:var(--purple);color:#fff;padding:2mm 6mm;border-radius:8px;font-size:12px;font-weight:700;display:inline-block;}
+.btn-y{background:var(--yellow);color:var(--navy);padding:2mm 6mm;border-radius:8px;font-size:12px;font-weight:700;display:inline-block;}
+
+.caption{margin-top:4mm;font-size:13px;color:#54627a;line-height:1.7;background:var(--light);border-right:4px solid var(--blue);padding:4mm 5mm;border-radius:0 10px 10px 0;}
+.caption b{color:var(--navy);}
+
+/* search mock */
+.search-box{background:#fff;border:1px solid #d8e3ef;border-radius:10px;padding:3mm 4mm;display:flex;align-items:center;gap:8px;margin-bottom:3mm;}
+.search-box .q{flex:1;color:var(--navy);font-weight:700;font-size:14px;}
+.chips{display:flex;gap:2mm;margin-bottom:4mm;}
+.chip{padding:1.5mm 4mm;border-radius:20px;font-size:11px;border:1px solid #d8e3ef;color:var(--gray);}
+.chip.on{background:var(--blue);color:#fff;border-color:var(--blue);font-weight:700;}
+
+/* telemarketing card */
+.tm-card{background:#fff;border-radius:12px;border:1px solid #e7eef6;padding:5mm;margin-bottom:4mm;}
+.tm-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:4mm;padding-bottom:3mm;border-bottom:1px solid #eef3f8;}
+.tm-name{font-size:18px;font-weight:900;color:var(--navy);}
+.tm-row{display:flex;gap:8px;font-size:12px;color:#54627a;margin-bottom:2mm;align-items:center;}
+.tm-row .k{color:var(--gray);min-width:22mm;}
+.tm-status{display:flex;gap:2mm;margin-top:3mm;}
+.tm-opt{flex:1;text-align:center;padding:2.5mm;border-radius:8px;font-size:12px;font-weight:700;border:2px solid #e7eef6;color:#54627a;}
+.tm-opt.sel{border-color:#1d8a3b;background:#e3f7e8;color:#1d8a3b;}
+
+/* group cards */
+.grp-grid{display:grid;grid-template-columns:1fr 1fr;gap:3mm;}
+.grp{background:#fff;border-radius:11px;border:1px solid #e7eef6;padding:4mm;border-top:3px solid var(--purple);}
+.grp h5{font-size:14px;font-weight:700;color:var(--navy);margin-bottom:1.5mm;}
+.grp .meta{font-size:11px;color:var(--gray);margin-bottom:2mm;}
+.grp .leader{font-size:12px;color:var(--blue);font-weight:700;}
+.grp.noleader{border-top-color:#c0392b;}
+.grp.noleader .nl{background:#fde5e5;color:#c0392b;font-size:10px;font-weight:700;padding:1px 7px;border-radius:12px;display:inline-block;}
+
+/* CTA body-page steps */
+.step{display:flex;align-items:center;gap:5mm;background:var(--light);border-radius:12px;padding:5mm 6mm;margin-bottom:4mm;}
+.step-n{width:11mm;height:11mm;border-radius:9px;background:var(--yellow);color:var(--navy);font-weight:900;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.step-t{font-size:14px;color:#54627a;line-height:1.6;}
+.step-t b{color:var(--navy);font-size:16px;}
+.contact-card{margin-top:7mm;background:var(--navy);border-radius:16px;padding:9mm 10mm;}
+.cc-label{font-size:14px;color:#9db8d2;margin-bottom:3mm;}
+.cc-name{font-size:26px;font-weight:900;color:#ffffff;margin-bottom:4mm;}
+.cc-mail{font-size:20px;font-weight:700;color:var(--yellow);}
+
+/* CTA page */
+.cta{background:linear-gradient(150deg,#032147,#125a93);color:#fff;}
+.cta-in{padding:10mm 20mm;}
+.cta h2{font-size:30px;font-weight:900;line-height:1.15;margin-bottom:4mm;}
+.cta h2 span{color:var(--yellow);}
+.cta p{font-size:16px;color:#cfe3f3;line-height:1.7;max-width:150mm;margin-bottom:7mm;}
+.cta-list{margin-bottom:5mm;}
+.cta-li{font-size:16px;margin-bottom:5mm;color:#fff;}
+.cta-li .num{display:inline-block;width:9mm;height:9mm;line-height:9mm;text-align:center;border-radius:7px;background:var(--yellow);color:var(--navy);font-weight:900;margin-left:4mm;}
+.contact-box{background:#021a39;border:1px solid rgba(236,173,10,.45);
+  border-radius:14px;padding:8mm;}
+.contact-box td{background:#021a39;}
+.contact-box .t{font-size:14px;color:#cfe3f3;}
+.contact-box .v{font-size:20px;font-weight:700;color:#fff;}
+.contact-box .vy{color:var(--yellow);}
+</style>
+</head>
+<body>
+
+<!-- ============ PAGE 1 — COVER ============ -->
+<div class="page cover">
+  <div class="cover-deco"></div>
+  <div class="cover-deco2"></div>
+  <div class="cover-top">
+    <div class="kicker">מערכת ניהול בחירות · Election Management System</div>
+    <h1>שליטה מלאה<br>במערך <span class="accent">הבחירות</span><br>שלך</h1>
+    <div class="sub">פלטפורמה חכמה לניהול בוחרים, קבוצות והיררכיית פעילים — מהמטה ועד הבית הבודד. כל הנתונים, כל הקשרים וכל שיחת הטלמרקטינג במקום אחד.</div>
+  </div>
+  <div class="cover-strip"><div class="cs1"></div><div class="cs2"></div><div class="cs3"></div></div>
+  <div class="cover-foot">
+    <div style="font-size:13px;color:#9db8d2;">מצגת למשקיעים ולקוחות פוטנציאליים · 2026</div>
+    <div style="display:flex;gap:5mm;">
+      <div class="badge"><b>360°</b><span>ניהול מטה</span></div>
+      <div class="badge"><b>Live</b><span>חיפוש בזמן אמת</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PAGE 2 — OVERVIEW ============ -->
+<div class="page">
+ <div class="body-page">
+  <div class="section-tag">סקירה</div>
+  <h2 class="title">מה המערכת עושה</h2>
+  <p class="lead">מערכת ניהול הבחירות מרכזת את כל מערך השטח של הקמפיין במקום אחד. במרכז עומד הבוחר — וסביבו נבנית היררכיית ניהול ברורה: ראשי אגפים מנהלים ראשי קבוצות, ראשי קבוצות מנהלים קבוצות בוחרים, וכל בוחר משויך לקבוצות לפי נושא וקרבה. התוצאה: שקיפות מלאה, איתור מהיר של אשכולות משפחתיים, וניהול קמפיין טלפוני יעיל.</p>
+
+  <div class="feat-grid">
+    <div class="feat">
+      <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#209dd7" stroke-width="2"><circle cx="9" cy="7" r="3"/><path d="M2 21v-2a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v2"/><circle cx="18" cy="8" r="2"/></svg></div>
+      <h3>ניהול בוחרים</h3>
+      <p>רישום, עריכה ושיוך בוחרים לקבוצות. כתובת מלאה לכל בוחר — רחוב, בניין ודירה — לזיהוי מדויק בשטח.</p>
+    </div>
+    <div class="feat">
+      <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ecad0a" stroke-width="2"><path d="M3 7h18M3 12h18M3 17h12"/></svg></div>
+      <h3>היררכיית מטה</h3>
+      <p>שרשרת ניהול מלאה מראש אגף, דרך ראש קבוצה, אל הבוחר — תמונת מצב ארגונית בכל רגע נתון.</p>
+    </div>
+    <div class="feat">
+      <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#753991" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></div>
+      <h3>חיפוש חכם בזמן אמת</h3>
+      <p>חיפוש לפי שם, ראש קבוצה, רחוב או רחוב+מספר. חיפוש "אורלנסקי 13" מחזיר את כל דיירי הבניין — אשכול משפחתי שלם.</p>
+    </div>
+    <div class="feat">
+      <div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#032147" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
+      <h3>מרכז טלמרקטינג</h3>
+      <p>ממשק שיחות ייעודי: סימון סטטוס תמיכה, תיעוד שיחות והתקדמות שיטתית לאורך רשימת הבוחרים.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:5mm;background:var(--light);border-radius:14px;padding:5mm;">
+   <div style="font-weight:700;color:var(--navy);font-size:15px;margin-bottom:3mm;">היררכיית הניהול</div>
+   <div style="display:flex;align-items:center;justify-content:space-between;gap:2mm;">
+     <div style="text-align:center;"><div class="label">ראש אגף</div><div class="node n-nav" style="background:#0c3766;color:#ffffff;">אבי נחמני</div></div>
+     <div style="color:#c4d2e2;font-size:20px;">←</div>
+     <div style="text-align:center;"><div class="label">ראש קבוצה</div><div class="node n-blue">גלעד שחר</div></div>
+     <div style="color:#c4d2e2;font-size:20px;">←</div>
+     <div style="text-align:center;"><div class="label">קבוצה</div><div class="node n-purple">הורים — כיתות א'</div></div>
+     <div style="color:#c4d2e2;font-size:20px;">←</div>
+     <div style="text-align:center;"><div class="label">בוחר</div><div class="node n-yellow">איתי רגב</div></div>
+   </div>
+  </div>
+ </div>
+ <div class="pagenum">02</div>
+ <div class="pagebrand">מערכת ניהול <span>בחירות</span></div>
+</div>
+
+<!-- ============ PAGE 3 — DASHBOARD MOCKUP ============ -->
+<div class="page">
+ <div class="body-page">
+  <div class="section-tag">מסך 01 · דשבורד</div>
+  <h2 class="title">תמונת מצב במבט אחד</h2>
+  <div class="mock">
+   <div class="mock-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><div class="mock-url">app.election-system.co.il/dashboard</div></div>
+   <div class="app">
+    <div class="side">
+      <div class="logo">ניהול <span>בחירות</span></div>
+      <div class="nav-i active"><span class="d"></span> דשבורד</div>
+      <div class="nav-i"><span class="d"></span> בוחרים</div>
+      <div class="nav-i"><span class="d"></span> קבוצות</div>
+      <div class="nav-i"><span class="d"></span> ראשי קבוצות</div>
+      <div class="nav-i"><span class="d"></span> ראשי אגפים</div>
+      <div class="nav-i"><span class="d"></span> חיפוש</div>
+      <div class="nav-i"><span class="d"></span> טלמרקטינג</div>
+      <div class="nav-i"><span class="d"></span> סטטוסים</div>
+    </div>
+    <div class="main">
+      <h4>שלום, מנהל הקמפיין</h4>
+      <div class="stats">
+        <div class="stat s1"><b>1,248</b><span>בוחרים</span></div>
+        <div class="stat s2"><b>32</b><span>קבוצות</span></div>
+        <div class="stat s3"><b>11</b><span>ראשי קבוצות</span></div>
+        <div class="stat s4"><b>4</b><span>ראשי אגפים</span></div>
+      </div>
+      <div style="font-weight:700;color:var(--navy);font-size:14px;margin-bottom:3mm;">תצוגת היררכיה</div>
+      <table class="tbl">
+        <tr><th>ראש אגף</th><th>ראשי קבוצות</th><th>קבוצות</th><th>בוחרים</th></tr>
+        <tr><td>אבי נחמני</td><td>4</td><td>9</td><td>312</td></tr>
+        <tr><td>מירב כהן</td><td>3</td><td>8</td><td>286</td></tr>
+        <tr><td>דוד לוי</td><td>2</td><td>7</td><td>240</td></tr>
+        <tr><td>נטע ברק</td><td>2</td><td>8</td><td>410</td></tr>
+      </table>
+      <div style="margin-top:4mm;display:flex;gap:3mm;align-items:center;">
+        <span class="pill pill-g">תומכים 612</span>
+        <span class="pill pill-a">מתלבטים 481</span>
+        <span class="pill pill-r">מתנגדים 155</span>
+      </div>
+    </div>
+   </div>
+  </div>
+  <div class="caption"><b>הדשבורד</b> מציג מיד את היקף מערך הקמפיין: מספרי בוחרים, קבוצות ופעילים, לצד תצוגת ההיררכיה המלאה וחלוקת הבוחרים לפי סטטוס תמיכה.</div>
+ </div>
+ <div class="pagenum">03</div>
+ <div class="pagebrand">מערכת ניהול <span>בחירות</span></div>
+</div>
+
+<!-- ============ PAGE 4 — VOTERS + SEARCH ============ -->
+<div class="page">
+ <div class="body-page">
+  <div class="section-tag">מסך 02 · בוחרים וחיפוש</div>
+  <h2 class="title">איתור בוחרים ואשכולות משפחתיים</h2>
+  <div class="mock">
+   <div class="mock-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><div class="mock-url">app.election-system.co.il/search</div></div>
+   <div class="app">
+    <div class="side">
+      <div class="logo">ניהול <span>בחירות</span></div>
+      <div class="nav-i"><span class="d"></span> דשבורד</div>
+      <div class="nav-i"><span class="d"></span> בוחרים</div>
+      <div class="nav-i"><span class="d"></span> קבוצות</div>
+      <div class="nav-i"><span class="d"></span> ראשי קבוצות</div>
+      <div class="nav-i"><span class="d"></span> ראשי אגפים</div>
+      <div class="nav-i active"><span class="d"></span> חיפוש</div>
+      <div class="nav-i"><span class="d"></span> טלמרקטינג</div>
+      <div class="nav-i"><span class="d"></span> סטטוסים</div>
+    </div>
+    <div class="main">
+      <h4>חיפוש בוחרים</h4>
+      <div class="search-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <div class="q">אורלנסקי 13</div>
+      </div>
+      <div class="chips">
+        <div class="chip">שם משפחה</div>
+        <div class="chip">ראש קבוצה</div>
+        <div class="chip">רחוב</div>
+        <div class="chip on">רחוב + מספר</div>
+      </div>
+      <table class="tbl">
+        <tr><th>שם</th><th>כתובת</th><th>ראש קבוצה</th><th>סטטוס</th></tr>
+        <tr><td>איתי רגב</td><td>אורלנסקי 13, דירה 17, פ"ת</td><td>גלעד שחר</td><td><span class="pill pill-a">מתלבט</span></td></tr>
+        <tr><td>נועה רגב</td><td>אורלנסקי 13, דירה 17, פ"ת</td><td>גלעד שחר</td><td><span class="pill pill-g">תומך</span></td></tr>
+        <tr><td>יוסי כהן</td><td>אורלנסקי 13, דירה 4, פ"ת</td><td>רונית גל</td><td><span class="pill pill-g">תומך</span></td></tr>
+        <tr><td>מאיה כהן</td><td>אורלנסקי 13, דירה 4, פ"ת</td><td>רונית גל</td><td><span class="pill pill-r">מתנגד</span></td></tr>
+        <tr><td>דנה אבטליון</td><td>אורלנסקי 13, דירה 22, פ"ת</td><td>גלעד שחר</td><td><span class="pill pill-a">מתלבט</span></td></tr>
+      </table>
+    </div>
+   </div>
+  </div>
+  <div class="caption">חיפוש <b>רחוב + מספר</b> מחזיר את כל הבוחרים הרשומים באותו בניין — כלי רב־עוצמה לזיהוי אשכולות משפחתיים ולתכנון ביקורי בית ממוקדים. התוצאות מתעדכנות תוך כדי הקלדה.</div>
+ </div>
+ <div class="pagenum">04</div>
+ <div class="pagebrand">מערכת ניהול <span>בחירות</span></div>
+</div>
+
+<!-- ============ PAGE 5 — TELEMARKETING + GROUPS ============ -->
+<div class="page">
+ <div class="body-page">
+  <div class="section-tag">מסך 03 · טלמרקטינג וקבוצות</div>
+  <h2 class="title">ניהול הקמפיין הטלפוני</h2>
+  <div class="mock">
+   <div class="mock-bar"><div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div><div class="mock-url">app.election-system.co.il/telemarketing</div></div>
+   <div class="app">
+    <div class="side">
+      <div class="logo">ניהול <span>בחירות</span></div>
+      <div class="nav-i"><span class="d"></span> דשבורד</div>
+      <div class="nav-i"><span class="d"></span> בוחרים</div>
+      <div class="nav-i"><span class="d"></span> קבוצות</div>
+      <div class="nav-i"><span class="d"></span> ראשי קבוצות</div>
+      <div class="nav-i"><span class="d"></span> ראשי אגפים</div>
+      <div class="nav-i"><span class="d"></span> חיפוש</div>
+      <div class="nav-i active"><span class="d"></span> טלמרקטינג</div>
+      <div class="nav-i"><span class="d"></span> סטטוסים</div>
+    </div>
+    <div class="main">
+      <h4>שיחה 47 מתוך 312</h4>
+      <div class="tm-card">
+        <div class="tm-head">
+          <div class="tm-name">איתי רגב</div>
+          <span class="pill pill-b">קבוצה: הורים — כיתות א'</span>
+        </div>
+        <div class="tm-row"><span class="k">טלפון</span><b>052-7XX-XX82</b></div>
+        <div class="tm-row"><span class="k">כתובת</span> אורלנסקי 13, דירה 17, פתח תקווה</div>
+        <div class="tm-row"><span class="k">ראש קבוצה</span> גלעד שחר</div>
+        <div class="tm-status">
+          <div class="tm-opt sel">תומך</div>
+          <div class="tm-opt">מתלבט</div>
+          <div class="tm-opt">מתנגד</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span class="btn-y">דלג ←</span>
+        <span style="font-size:11px;color:var(--gray);">תועדו 46 שיחות היום</span>
+        <span class="btn-p">שמור והמשך →</span>
+      </div>
+      <div style="font-weight:700;color:var(--navy);font-size:13px;margin:5mm 0 3mm;">קבוצות לדוגמה</div>
+      <div class="grp-grid">
+        <div class="grp"><h5>הורים — כיתות א'</h5><div class="meta">28 בוחרים</div><div class="leader">גלעד שחר</div></div>
+        <div class="grp noleader"><h5>הורים — גני ילדים</h5><div class="meta">19 בוחרים</div><span class="nl">ללא ראש קבוצה</span></div>
+      </div>
+    </div>
+   </div>
+  </div>
+  <div class="caption">מרכז ה<b>טלמרקטינג</b> מוביל את הפעיל שיחה אחר שיחה: כל פרטי הבוחר על המסך, סימון סטטוס בלחיצה ותיעוד אוטומטי של ההתקדמות. קבוצות ללא ראש קבוצה מסומנות בבירור לטיפול.</div>
+ </div>
+ <div class="pagenum">05</div>
+ <div class="pagebrand">מערכת ניהול <span>בחירות</span></div>
+</div>
+
+<!-- ============ PAGE 6 — WHY / VALUE ============ -->
+<div class="page">
+ <div class="body-page">
+  <div class="section-tag">הערך</div>
+  <h2 class="title">למה זה משנה</h2>
+  <p class="lead">קמפיין נמדד ביכולת להגיע לבוחר הנכון, בזמן הנכון, עם המסר הנכון. המערכת הופכת אלפי שמות לרשת ניהול חכמה ופעילה.</p>
+  <div class="feat-grid">
+    <div class="feat"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#209dd7" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9z"/></svg></div><h3>מהירות</h3><p>חיפוש חי, ממשקים נקיים וזרימות עבודה קצרות — פחות לחיצות, יותר שטח.</p></div>
+    <div class="feat"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#ecad0a" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>שליטה בזמן אמת</h3><p>כל שינוי משתקף מיד בכל המערכת — שם קבוצה, שיוך פעיל או סטטוס בוחר.</p></div>
+    <div class="feat"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#753991" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/></svg></div><h3>דיוק ושקיפות</h3><p>אישורי פעולה לכל מחיקה ושינוי, וסימון ברור של מצבים חריגים.</p></div>
+    <div class="feat"><div class="ico"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#032147" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></div><h3>מדרגיות</h3><p>מבוסס טכנולוגיית Web מודרנית — מוכן לגדול מקמפיין מקומי ועד מערך ארצי.</p></div>
+  </div>
+  <div style="margin-top:7mm;display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;text-align:center;">
+    <div style="background:var(--navy);color:#fff;border-radius:12px;padding:6mm;"><div style="font-size:30px;font-weight:900;color:var(--yellow);">4</div><div style="font-size:12px;color:#cfe3f3;">רמות היררכיה</div></div>
+    <div style="background:var(--blue);color:#fff;border-radius:12px;padding:6mm;"><div style="font-size:30px;font-weight:900;">8</div><div style="font-size:12px;color:#e7f4fc;">מסכי ניהול</div></div>
+    <div style="background:var(--purple);color:#fff;border-radius:12px;padding:6mm;"><div style="font-size:30px;font-weight:900;color:var(--yellow);">∞</div><div style="font-size:12px;color:#f0e3f7;">בוחרים נתמכים</div></div>
+  </div>
+ </div>
+ <div class="pagenum">06</div>
+ <div class="pagebrand">מערכת ניהול <span>בחירות</span></div>
+</div>
+
+<!-- ============ PAGE 7 — CTA ============ -->
+<div class="page">
+ <div class="body-page">
+  <div class="section-tag">הצטרפו</div>
+  <h2 class="title">בואו נוביל את הקמפיין הבא יחד</h2>
+  <p class="lead">אנו מזמינים משקיעים ולקוחות לקחת חלק בפלטפורמה שכבר מוכנה להדגמה. הצעד הבא פשוט.</p>
+
+  <div class="step"><span class="step-n">1</span><div class="step-t"><b>הדגמה חיה של המערכת</b><br>על נתוני דמו מלאים, כולל כל המסכים והזרימות.</div></div>
+  <div class="step"><span class="step-n">2</span><div class="step-t"><b>התאמה אישית</b><br>למבנה ולצרכים הספציפיים של הארגון שלכם.</div></div>
+  <div class="step"><span class="step-n">3</span><div class="step-t"><b>הטמעה והכשרת הפעילים</b><br>ליווי מלא לקראת יום הבחירות.</div></div>
+
+  <div class="contact-card">
+   <div class="cc-label">ליצירת קשר ולתיאום הדגמה</div>
+   <div class="cc-name">בנימין זיידנר</div>
+   <div class="cc-mail">binyamin.zaidner@gmail.com</div>
+  </div>
+ </div>
+ <div class="pagenum">07</div>
+ <div class="pagebrand">מערכת ניהול <span>בחירות</span></div>
+</div>
+
+</body>
+</html>

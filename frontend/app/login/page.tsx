@@ -8,7 +8,7 @@ import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 
 export default function LoginPage() {
-  const { login, completeMfa, currentUser } = useAuth();
+  const { login, sendMfaCode, completeMfa, currentUser } = useAuth();
   const { loading: storeLoading } = useStore();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -16,13 +16,17 @@ export default function LoginPage() {
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Two-step: false = password screen; true = OTP screen.
   const [mfaStep, setMfaStep] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+  const [sentNote, setSentNote] = useState(false);
   const [code, setCode] = useState("");
 
   useEffect(() => {
     if (currentUser) router.replace("/dashboard");
   }, [currentUser, router]);
 
+  // Step 1: verify email + password.
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -32,15 +36,10 @@ export default function LoginPage() {
       if (result === "ok") {
         router.replace("/dashboard");
       } else if (result === "mfa") {
-        setMfaStep(true);
+        // Password verified — move to the OTP screen (no SMS sent yet).
+        setMfaStep(true); setCodeSent(false); setSentNote(false);
       } else if (result === "frozen") {
         setError("חשבון זה הוקפא. פנה למנהל המערכת.");
-      } else if (result === "too_many") {
-        // Password was correct; Firebase temporarily blocked SMS to this number.
-        setError("הסיסמה אומתה, אך שליחת קוד האימות נחסמה זמנית עקב ריבוי ניסיונות. המתן מספר דקות ונסה שוב.");
-      } else if (result === "sms_failed") {
-        // Password was correct; the SMS code could not be sent to the registered number.
-        setError("הסיסמה אומתה, אך שליחת קוד ה-SMS למספר הרשום נכשלה. פנה למנהל המערכת לבדיקת מספר הטלפון לאימות.");
       } else {
         setError("אימייל או סיסמה שגויים.");
       }
@@ -51,6 +50,26 @@ export default function LoginPage() {
     }
   };
 
+  // Step 2a: user clicks to send the SMS code (also used for "resend").
+  const handleSendCode = async () => {
+    setLoading(true); setError(""); setSentNote(false);
+    try {
+      const result = await sendMfaCode();
+      if (result === "sent") {
+        setCodeSent(true); setSentNote(true); setCode("");
+      } else if (result === "too_many") {
+        setError("שליחת קוד נחסמה זמנית עקב ריבוי בקשות. המתן מספר דקות ונסה שוב.");
+      } else {
+        setError("שליחת קוד ה-SMS נכשלה. בדוק את מספר הטלפון הרשום או נסה שוב.");
+      }
+    } catch {
+      setError("שגיאה בשליחת הקוד.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Step 2b: verify the SMS code and finish login.
   const handleMfa = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -66,23 +85,6 @@ export default function LoginPage() {
       }
     } catch {
       setError("שגיאה באימות הקוד. נסה שנית.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const [resent, setResent] = useState(false);
-  const handleResend = async () => {
-    setLoading(true); setError(""); setResent(false);
-    try {
-      const result = await login(email, password);
-      if (result === "mfa") { setResent(true); setCode(""); }
-      else if (result === "ok") { router.replace("/dashboard"); }
-      else if (result === "too_many") { setError("יותר מדי ניסיונות. המתן מספר דקות לפני שליחת קוד חדש."); }
-      else if (result === "sms_failed") { setError("שליחת הקוד נכשלה. ייתכן שמספר הטלפון הרשום אינו יכול לקבל SMS — פנה למנהל המערכת."); }
-      else { setError("שליחת קוד חדש נכשלה. נסה שוב בעוד מספר שניות."); }
-    } catch {
-      setError("שגיאה בשליחת קוד חדש.");
     } finally {
       setLoading(false);
     }
@@ -215,11 +217,29 @@ export default function LoginPage() {
         </form>
         )}
 
-        {mfaStep && (
+        {/* OTP step — after the password is verified */}
+        {mfaStep && !codeSent && (
+          <div>
+            <div style={{ marginBottom: 18, textAlign: "center", color: "#475569", fontSize: 14, lineHeight: 1.7 }}>
+              אימות דו-שלבי. לחץ לשליחת קוד אימות ב-SMS למספר הנייד הרשום שלך.
+            </div>
+            {error && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "10px 14px", fontSize: 13, color: "#dc2626", marginBottom: 18, textAlign: "center" }}>
+                {error}
+              </div>
+            )}
+            <button type="button" onClick={handleSendCode} disabled={loading}
+              style={{ width: "100%", padding: "13px", background: loading ? "#93c5fd" : "linear-gradient(135deg, #209dd7, #1a7fad)", color: "#fff", border: "none", borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: loading ? "not-allowed" : "pointer", boxShadow: "0 4px 14px rgba(32,157,215,0.3)" }}>
+              {loading ? "שולח..." : "שלח קוד ב-SMS"}
+            </button>
+          </div>
+        )}
+
+        {mfaStep && codeSent && (
         <form onSubmit={handleMfa}>
           <div style={{ marginBottom: 18, textAlign: "center", color: "#475569", fontSize: 14, lineHeight: 1.6 }}>
             שלחנו קוד אימות ב-SMS לטלפון שלך.<br />הזן אותו כדי להשלים את הכניסה.
-            {resent && <div style={{ color: "#16a34a", fontSize: 13, marginTop: 6 }}>קוד חדש נשלח ✓</div>}
+            {sentNote && <div style={{ color: "#16a34a", fontSize: 13, marginTop: 6 }}>הקוד נשלח ✓</div>}
           </div>
           <div style={{ marginBottom: 18 }}>
             <label className="label">קוד אימות</label>
@@ -250,7 +270,7 @@ export default function LoginPage() {
           >
             {loading ? "מאמת..." : "אישור והתחברות"}
           </button>
-          <button type="button" onClick={handleResend} disabled={loading}
+          <button type="button" onClick={handleSendCode} disabled={loading}
             style={{ width: "100%", marginTop: 12, background: "none", border: "none", color: "#209dd7", fontSize: 13, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer" }}>
             שלח קוד מחדש
           </button>

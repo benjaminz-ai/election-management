@@ -185,6 +185,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         } catch { setTenantName(null); setTenantFrozen(false); }
         // Load only this tenant's data.
         const loaded = await loadFromFirestore(tid);
+        // A super admin viewing ANOTHER company won't have their own user doc
+        // in that company's list — fetch it so their identity (currentUser)
+        // still resolves and they aren't bounced to login.
+        if (!loaded.users.some((u) => u.id === user.uid)) {
+          try {
+            const own = await getDoc(doc(db, "users", user.uid));
+            if (own.exists()) loaded.users = [...loaded.users, own.data() as AppUser];
+          } catch {}
+        }
         setState(loaded);
       } catch (e) {
         console.error("Firestore load failed", e);

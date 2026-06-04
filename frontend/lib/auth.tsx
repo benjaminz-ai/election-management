@@ -6,24 +6,31 @@ import {
   getMultiFactorResolver, PhoneAuthProvider, PhoneMultiFactorGenerator,
   RecaptchaVerifier, type MultiFactorResolver,
 } from "firebase/auth";
-import { auth as fbAuth, db } from "./firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { auth as fbAuth } from "./firebase";
 import { useStore } from "./store";
 import { AppUser } from "@/types";
 
-// "invalid"     → wrong email/password (or legacy fallback failed)
-// "mfa"          → password OK, SMS code sent, waiting for the code
-// "sms_failed"   → password OK, but sending the SMS code failed (e.g. the
-//                  registered phone can't receive Firebase's verification SMS).
-//                  IMPORTANT: this is NOT a wrong password — see the login page.
-// "too_many"     → password OK, but Firebase temporarily blocked SMS to this
-//                  number after too many attempts (auth/too-many-requests).
-export type LoginResult = "ok" | "frozen" | "invalid" | "mfa" | "sms_failed" | "too_many";
+// login() result:
+//   "ok"      → signed in (no second factor required)
+//   "frozen"  → account frozen
+//   "invalid" → wrong email/password
+//   "mfa"     → password verified; a second factor is required. NO SMS is sent
+//               yet — the login page shows the OTP screen where the user clicks
+//               to send the code (sendMfaCode).
+export type LoginResult = "ok" | "frozen" | "invalid" | "mfa";
+
+// sendMfaCode() result:
+//   "sent"       → SMS code sent, waiting for the user to enter it
+//   "too_many"   → Firebase temporarily blocked SMS (auth/too-many-requests)
+//   "sms_failed" → sending failed for another reason
+export type SendCodeResult = "sent" | "too_many" | "sms_failed";
 
 type AuthCtx = {
   currentUser: AppUser | null;
   login: (email: string, password: string) => Promise<LoginResult>;
-  // Completes a login that returned "mfa", using the SMS code the user received.
+  // After login() returns "mfa": send the SMS code (triggered by user click).
+  sendMfaCode: () => Promise<SendCodeResult>;
+  // Completes the login using the SMS code the user received.
   completeMfa: (code: string) => Promise<LoginResult>;
   logout: () => void;
 };
@@ -31,6 +38,7 @@ type AuthCtx = {
 const AuthContext = createContext<AuthCtx>({
   currentUser: null,
   login: async () => "invalid",
+  sendMfaCode: async () => "sms_failed",
   completeMfa: async () => "invalid",
   logout: () => {},
 });
@@ -147,21 +155,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => events.forEach((e) => window.removeEventListener(e, onActivity));
   }, [currentUserId]);
 
-  // Real-time: if THIS user is frozen (or deleted) elsewhere, log out at once.
-  useEffect(() => {
-    if (!currentUserId) return;
-    const unsub = onSnapshot(
-      doc(db, "users", currentUserId),
-      (snap) => {
-        if (!snap.exists() || snap.data()?.isFrozen) {
-          clearSession();
-          setCurrentUserId(null);
-        }
-      },
-      () => {}
-    );
-    return () => unsub();
-  }, [currentUserId]);
+  // Freeze enforcement is handled by DISABLING the Firebase Auth account
+  // (server-side). A frozen user cannot sign in, and an active session is
+  // dropped automatically when its token refreshes — so no client-side
+  // polling or real-time listener is needed here.
 
   const startSession = (id: string) => {
     setCurrentUserId(id);
@@ -192,33 +189,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       startSession(profile?.id ?? uid);
       return "ok";
     } catch (e: unknown) {
-      // ── Two-factor required: send the SMS and ask the page for the code ──────
+      // ── Two-factor required: password is valid. Store the resolver and let
+      //    the login page move to the OTP screen. The SMS is NOT sent here —
+      //    the user sends it explicitly via sendMfaCode() (a button click).
       if ((e as { code?: string })?.code === "auth/multi-factor-auth-required") {
-        // Reuse the ONE persistent invisible reCAPTCHA (see getRecaptcha).
-        // Do NOT create-and-clear a new verifier per attempt — that is what
-        // crashed recaptcha__iw.js ("Cannot read properties of null") and
-        // silently broke SMS sending for already-enrolled users.
-        try {
-          const verifier = getRecaptcha();
-          await verifier.render(); // idempotent; guarantees the widget exists
-          const resolver = getMultiFactorResolver(fbAuth, e as Parameters<typeof getMultiFactorResolver>[1]);
-          const phoneProvider = new PhoneAuthProvider(fbAuth);
-          const verificationId = await phoneProvider.verifyPhoneNumber(
-            { multiFactorHint: resolver.hints[0], session: resolver.session },
-            verifier
-          );
-          mfaRef.current = { resolver, verificationId };
-          return "mfa";
-        } catch (smsErr: unknown) {
-          // The password was already accepted (that's why we're inside the
-          // multi-factor branch). What failed here is SENDING the SMS code
-          // (most often a reCAPTCHA failure). Do NOT report this as "invalid" —
-          // that would show a misleading "wrong password" message.
-          const smsCode = (smsErr as { code?: string })?.code || "";
-          console.error("MFA SMS send failed (password was valid):", smsCode || smsErr);
-          if (smsCode === "auth/too-many-requests") return "too_many";
-          return "sms_failed";
-        }
+        const resolver = getMultiFactorResolver(fbAuth, e as Parameters<typeof getMultiFactorResolver>[1]);
+        mfaRef.current = { resolver, verificationId: "" };
+        return "mfa";
       }
       // ── Fallback: legacy Firestore check (transition safety net) ────────────
       // Best-effort; the users list may be empty here (rules require auth).
@@ -231,9 +208,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []); // stable — reads via refs
 
+  // Send the SMS code for the pending MFA challenge (user-triggered).
+  const sendMfaCode = useCallback(async (): Promise<SendCodeResult> => {
+    const ctx = mfaRef.current;
+    if (!ctx) return "sms_failed";
+    try {
+      const verifier = getRecaptcha();
+      await verifier.render(); // idempotent; ensures the invisible widget exists
+      const phoneProvider = new PhoneAuthProvider(fbAuth);
+      const verificationId = await phoneProvider.verifyPhoneNumber(
+        { multiFactorHint: ctx.resolver.hints[0], session: ctx.resolver.session },
+        verifier
+      );
+      mfaRef.current = { ...ctx, verificationId };
+      return "sent";
+    } catch (smsErr: unknown) {
+      const smsCode = (smsErr as { code?: string })?.code || "";
+      console.error("MFA SMS send failed:", smsCode || smsErr);
+      if (smsCode === "auth/too-many-requests") return "too_many";
+      return "sms_failed";
+    }
+  }, [getRecaptcha]);
+
   const completeMfa = useCallback(async (code: string): Promise<LoginResult> => {
     const ctx = mfaRef.current;
-    if (!ctx) return "invalid";
+    if (!ctx || !ctx.verificationId) return "invalid";
     try {
       const cred = PhoneAuthProvider.credential(ctx.verificationId, code);
       const assertion = PhoneMultiFactorGenerator.assertion(cred);
@@ -259,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ currentUser, login, completeMfa, logout }}>
+    <AuthContext.Provider value={{ currentUser, login, sendMfaCode, completeMfa, logout }}>
       {children}
     </AuthContext.Provider>
   );
