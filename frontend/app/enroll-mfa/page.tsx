@@ -12,8 +12,12 @@ import {
 import { ShieldCheck, Loader2, CheckCircle2 } from "lucide-react";
 
 export default function EnrollMfaPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   const router = useRouter();
+
+  // Escape hatch: fully sign out and return to login (so MFA enforcement
+  // doesn't bounce the user straight back here).
+  const backToLogin = () => { logout(); router.replace("/login"); };
 
   const [phone, setPhone] = useState("");
   const [step, setStep] = useState<"phone" | "code" | "done">("phone");
@@ -142,6 +146,11 @@ export default function EnrollMfaPage() {
             </button>
           </form>
         )}
+
+        <button type="button" onClick={backToLogin}
+          style={{ width: "100%", marginTop: 16, background: "none", border: "none", color: "#94a3b8", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          חזרה להתחברות
+        </button>
 
         <div id="recaptcha-container" />
       </div>
