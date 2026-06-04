@@ -183,8 +183,11 @@ export default function UsersPage() {
     }
   };
 
+  // Never allow freezing yourself or a super admin.
+  const cannotFreeze = (u: AppUser) => u.id === currentUser?.id || u.isSuperAdmin === true;
+
   const handleFreeze = (u: AppUser) => {
-    if (u.id === currentUser?.id) return;
+    if (cannotFreeze(u)) return;
     freezeUser(u.id, !u.isFrozen);
   };
 
@@ -335,12 +338,12 @@ export default function UsersPage() {
                     <button
                       className="btn-icon"
                       onClick={() => handleFreeze(u)}
-                      disabled={u.id === currentUser?.id}
-                      title={u.isFrozen ? "בטל הקפאה" : "הקפא משתמש"}
+                      disabled={cannotFreeze(u)}
+                      title={u.isSuperAdmin ? "לא ניתן להקפיא אדמין על" : u.id === currentUser?.id ? "לא ניתן להקפיא את עצמך" : (u.isFrozen ? "בטל הקפאה" : "הקפא משתמש")}
                       style={{
                         color: u.isFrozen ? "#16a34a" : "#3b82f6",
-                        opacity: u.id === currentUser?.id ? 0.3 : 1,
-                        cursor: u.id === currentUser?.id ? "not-allowed" : "pointer",
+                        opacity: cannotFreeze(u) ? 0.3 : 1,
+                        cursor: cannotFreeze(u) ? "not-allowed" : "pointer",
                       }}
                     >
                       {u.isFrozen ? <PlayCircle size={13} /> : <Snowflake size={13} />}
@@ -384,7 +387,7 @@ export default function UsersPage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 6, flexShrink: 0 }}>
               <button className="btn-icon" onClick={() => openEdit(u)} style={{ minWidth: 36, minHeight: 36 }}><Pencil size={13} /></button>
-              <button className="btn-icon" onClick={() => handleFreeze(u)} disabled={u.id === currentUser?.id} style={{ minWidth: 36, minHeight: 36, color: u.isFrozen ? "#22c55e" : "#f59e0b", opacity: u.id === currentUser?.id ? 0.3 : 1, cursor: u.id === currentUser?.id ? "not-allowed" : "pointer" }} title={u.id === currentUser?.id ? "לא ניתן להקפיא את עצמך" : (u.isFrozen ? "הסר הקפאה" : "הקפא")}><Snowflake size={13} /></button>
+              <button className="btn-icon" onClick={() => handleFreeze(u)} disabled={cannotFreeze(u)} style={{ minWidth: 36, minHeight: 36, color: u.isFrozen ? "#22c55e" : "#f59e0b", opacity: cannotFreeze(u) ? 0.3 : 1, cursor: cannotFreeze(u) ? "not-allowed" : "pointer" }} title={u.isSuperAdmin ? "לא ניתן להקפיא אדמין על" : u.id === currentUser?.id ? "לא ניתן להקפיא את עצמך" : (u.isFrozen ? "הסר הקפאה" : "הקפא")}><Snowflake size={13} /></button>
             </div>
           </div>
         ))}

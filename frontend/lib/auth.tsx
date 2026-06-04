@@ -197,6 +197,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         mfaRef.current = { resolver, verificationId: "" };
         return "mfa";
       }
+      // ── Frozen: the Auth account was disabled (user- or company-freeze).
+      //    Firebase rejects sign-in with auth/user-disabled — show a clear
+      //    "account frozen" message instead of "wrong password".
+      if ((e as { code?: string })?.code === "auth/user-disabled") {
+        return "frozen";
+      }
       // ── Fallback: legacy Firestore check (transition safety net) ────────────
       // Best-effort; the users list may be empty here (rules require auth).
       const users = usersRef.current;

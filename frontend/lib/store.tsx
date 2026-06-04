@@ -86,7 +86,7 @@ type StoreContextType = {
   deleteCallStatus: (id: string) => void;
   addUser: (user: AppUser) => void;
   updateUser: (user: AppUser) => void;
-  freezeUser: (id: string, frozen: boolean) => void;
+  freezeUser: (id: string, frozen: boolean) => Promise<void>;
   refreshUsers: () => Promise<void>;
   addReminder: (r: Reminder) => void;
   updateReminder: (r: Reminder) => void;
@@ -660,15 +660,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDoc(doc(db, "users", user.id), stamp(user)).catch(console.error);
   };
 
-  const freezeUser = (id: string, frozen: boolean) => {
+  // Freeze = DISABLE the Firebase Auth account (server-side) so the user can't
+  // sign in at all, plus flip the profile flag for the UI. We go through the
+  // /api/admin/freeze-user route (Admin SDK) — it also enforces the hard guards
+  // (never a super admin, never yourself, same-company only). We update local
+  // state optimistically and revert if the server rejects it.
+  const freezeUser = async (id: string, frozen: boolean) => {
     const user = stateRef.current.users.find((u) => u.id === id);
     if (!user) return;
-    const updated = { ...user, isFrozen: frozen };
     setState((s) => ({
       ...s,
-      users: s.users.map((u) => (u.id === id ? updated : u)),
+      users: s.users.map((u) => (u.id === id ? { ...u, isFrozen: frozen } : u)),
     }));
-    updateDoc(doc(db, "users", id), { isFrozen: frozen }).catch(console.error);
+    try {
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("no token");
+      const res = await fetch("/api/admin/freeze-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idToken, uid: id, freeze: frozen }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error || "freeze failed");
+    } catch (err) {
+      console.error("freezeUser failed:", err);
+      // revert optimistic change
+      setState((s) => ({
+        ...s,
+        users: s.users.map((u) => (u.id === id ? { ...u, isFrozen: !frozen } : u)),
+      }));
+    }
   };
 
 
