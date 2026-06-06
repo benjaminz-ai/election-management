@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
   PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
-  X, ChevronRight, ChevronLeft, Bell, Contact, Building2,
+  X, ChevronRight, ChevronLeft, Bell, Contact, Building2, Activity,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { isFieldRole, canAccess } from "@/lib/permissions";
@@ -34,7 +34,10 @@ const commonLinks = [
   { href: "/statuses",      label: "סטטוסי תמיכה",   icon: Tag },
   { href: "/call-statuses", label: "סטטוסי שיחה",    icon: MessageSquareMore },
 ];
-const adminLinks = [{ href: "/users", label: "משתמשים", icon: UserCog }];
+const adminLinks = [
+  { href: "/activity", label: "תפוקות", icon: Activity },
+  { href: "/users", label: "משתמשים", icon: UserCog },
+];
 const fieldLink = { href: "/field", label: "האנשים שלי", icon: Contact };
 
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {

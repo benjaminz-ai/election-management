@@ -9,6 +9,10 @@ const FIELD_ROLES: UserRole[] = ["field", "group_leader", "division_head"];
 // ("/enroll-mfa" is always reachable so anyone can set up two-factor.)
 const FIELD_ALLOWED = ["/field", "/enroll-mfa"];
 
+// Screens only an admin (or super admin, whose role is also "admin") may reach.
+// Enforced both here (route guard) and by hiding the link in the sidebar.
+const ADMIN_ONLY = ["/activity"];
+
 // ── Two-factor (SMS MFA) rollout ──────────────────────────────────────────────
 // Set to true ONLY after the flow is verified end-to-end (so we never lock
 // users out). When true, users whose role requires MFA and who have not yet
@@ -32,6 +36,10 @@ export function allowedPaths(role?: UserRole | null): string[] | null {
 }
 
 export function canAccess(role: UserRole | null | undefined, path: string): boolean {
+  // Admin-only screens: only the admin role (super admin is also "admin").
+  if (ADMIN_ONLY.some((p) => path === p || path.startsWith(p + "/"))) {
+    return role === "admin";
+  }
   const allowed = allowedPaths(role);
   if (!allowed) return true;
   return allowed.some((p) => path === p || path.startsWith(p + "/"));
