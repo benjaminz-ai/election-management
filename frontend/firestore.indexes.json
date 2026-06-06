@@ -23,6 +23,22 @@
         { "fieldPath": "logId", "order": "ASCENDING" },
         { "fieldPath": "tenantId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "callShares",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sharedWithUserId", "order": "ASCENDING" },
+        { "fieldPath": "tenantId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "callShares",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sharedById", "order": "ASCENDING" },
+        { "fieldPath": "tenantId", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

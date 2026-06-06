@@ -7,7 +7,7 @@ const FIELD_ROLES: UserRole[] = ["field", "group_leader", "division_head"];
 // Screens a field-type user may reach. They get ONLY the read-only
 // "my people" screen — no telemarketing (editing) and no global search.
 // ("/enroll-mfa" is always reachable so anyone can set up two-factor.)
-const FIELD_ALLOWED = ["/field", "/enroll-mfa", "/profile", "/shared"];
+const FIELD_ALLOWED = ["/field", "/enroll-mfa", "/profile", "/shared", "/shares"];
 
 // Screens only an admin (or super admin, whose role is also "admin") may reach.
 // Enforced both here (route guard) and by hiding the link in the sidebar.

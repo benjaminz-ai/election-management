@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
   PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
-  X, ChevronRight, ChevronLeft, Bell, Contact, Building2, Activity, Pencil, Camera,
+  X, ChevronRight, ChevronLeft, Bell, Contact, Building2, Activity, Pencil, Camera, Share2,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { isFieldRole, canAccess } from "@/lib/permissions";
@@ -30,6 +30,7 @@ const commonLinks = [
   { href: "/division-heads",label: "ראשי אגף",       icon: Shield },
   { href: "/reports",       label: "דוחות",           icon: BarChart3 },
   { href: "/reminders",     label: "התזכורות שלי",    icon: Bell },
+  { href: "/shares",        label: "שיתופים",         icon: Share2 },
   { href: "/search",        label: "חיפוש",           icon: Search },
   { href: "/statuses",      label: "סטטוסי תמיכה",   icon: Tag },
   { href: "/call-statuses", label: "סטטוסי שיחה",    icon: MessageSquareMore },
