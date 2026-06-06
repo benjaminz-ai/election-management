@@ -9,7 +9,11 @@ import { ConversationLog } from "@/types";
 import PageHeader from "@/components/ui/PageHeader";
 import {
   Activity, Loader2, ChevronDown, ChevronUp, Phone, RefreshCw, Users, Download,
+  ArrowUp, ArrowDown, ArrowUpDown,
 } from "lucide-react";
+
+type SortKey = "name" | "total" | "statusUpdates";
+type SortDir = "asc" | "desc";
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "מנהל מערכת", field: "שטח", telemarketing: "טלמרקטינג",
@@ -43,6 +47,13 @@ export default function ActivityPage() {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("total");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+
+  const toggleSort = (k: SortKey) => {
+    if (sortKey === k) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(k); setSortDir(k === "name" ? "asc" : "desc"); }
+  };
 
   // Lookup maps
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
@@ -97,8 +108,21 @@ export default function ActivityPage() {
       a.logs.push(log);
     }
     for (const a of map.values()) a.logs.sort((x, y) => y.timestamp.localeCompare(x.timestamp));
-    return [...map.values()].sort((x, y) => y.total - x.total);
+    return [...map.values()];
   }, [logs, users]);
+
+  // Sorted view of the per-rep rows (advanced sorting by the chosen column).
+  const sortedAggs = useMemo<Agg[]>(() => {
+    const nm = (id: string) => { const u = userById.get(id); return u ? `${u.firstName} ${u.lastName}` : ""; };
+    const arr = [...aggs];
+    arr.sort((a, b) => {
+      const cmp = sortKey === "name"
+        ? nm(a.userId).localeCompare(nm(b.userId), "he")
+        : (a[sortKey] as number) - (b[sortKey] as number);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [aggs, sortKey, sortDir, userById]);
 
   // Company-wide totals + per-call-status breakdown.
   const totals = useMemo(() => {
@@ -212,16 +236,16 @@ export default function ActivityPage() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ background: "var(--bg-subtle, #f8fafc)", textAlign: "right" }}>
-                <th style={th}>משתמש</th>
+                <SortTh label="משתמש" k="name" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                 <th style={th}>תפקיד</th>
-                <th style={{ ...th, textAlign: "center" }}>סה״כ שיחות</th>
+                <SortTh label="סה״כ שיחות" k="total" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="center" />
                 <th style={th}>פילוח תוצאות</th>
-                <th style={{ ...th, textAlign: "center" }}>עדכוני סטטוס</th>
+                <SortTh label="עדכוני סטטוס" k="statusUpdates" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} align="center" />
                 <th style={{ ...th, width: 40 }} />
               </tr>
             </thead>
             <tbody>
-              {aggs.map((a) => {
+              {sortedAggs.map((a) => {
                 const u = userById.get(a.userId);
                 const isOpen = expanded === a.userId;
                 const zero = a.total === 0;
@@ -250,6 +274,7 @@ export default function ActivityPage() {
                       <tr>
                         <td colSpan={6} style={{ padding: 0, background: "rgba(32,157,215,0.03)" }}>
                           <div style={{ padding: "8px 18px 16px" }}>
+                            <div style={{ maxHeight: 340, overflowY: "auto", border: "1px solid #eef2f7", borderRadius: 8 }}>
                             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                               <thead>
                                 <tr style={{ textAlign: "right", color: "#64748b" }}>
@@ -278,6 +303,7 @@ export default function ActivityPage() {
                                 })}
                               </tbody>
                             </table>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -311,6 +337,20 @@ function SummaryCard({ icon, label, value, color }: { icon: React.ReactNode; lab
   );
 }
 
+function SortTh({ label, k, sortKey, sortDir, onSort, align }: {
+  label: string; k: SortKey; sortKey: SortKey; sortDir: SortDir; onSort: (k: SortKey) => void; align?: "center";
+}) {
+  const active = sortKey === k;
+  return (
+    <th style={{ ...th, textAlign: align ?? "right", cursor: "pointer", userSelect: "none" }} onClick={() => onSort(k)}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4, justifyContent: align === "center" ? "center" : undefined, color: active ? "var(--blue-primary,#209dd7)" : undefined }}>
+        {label}
+        {active ? (sortDir === "asc" ? <ArrowUp size={12} /> : <ArrowDown size={12} />) : <ArrowUpDown size={12} style={{ opacity: 0.4 }} />}
+      </span>
+    </th>
+  );
+}
+
 function Chip({ color, label, count, small }: { color: string; label: string; count?: number; small?: boolean }) {
   return (
     <span style={{
@@ -326,5 +366,5 @@ function Chip({ color, label, count, small }: { color: string; label: string; co
 
 const th: React.CSSProperties = { padding: "12px 16px", fontSize: 12, fontWeight: 700, color: "var(--gray-text)", textAlign: "right" };
 const td: React.CSSProperties = { padding: "12px 16px", fontSize: 14, color: "var(--text-primary,#1e293b)" };
-const thIn: React.CSSProperties = { padding: "6px 10px", fontSize: 12, fontWeight: 700, textAlign: "right" };
+const thIn: React.CSSProperties = { padding: "6px 10px", fontSize: 12, fontWeight: 700, textAlign: "right", position: "sticky", top: 0, background: "#f8fafc", zIndex: 1 };
 const tdIn: React.CSSProperties = { padding: "6px 10px", verticalAlign: "top" };
