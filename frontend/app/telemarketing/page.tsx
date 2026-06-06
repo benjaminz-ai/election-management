@@ -8,12 +8,13 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, setDoc, doc } from "firebase/firestore";
 import {
   Phone, ChevronRight, ChevronLeft, PhoneCall, MapPin, User, Users,
-  Clock, CheckCircle2, Loader2, Search, X, Bell,
+  Clock, CheckCircle2, Loader2, Search, X, Bell, Share2,
 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
 import DateTimePicker from "@/components/ui/DateTimePicker";
+import ShareCallDialog from "./ShareCallDialog";
 
 const generateId = () => `cl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
@@ -58,6 +59,7 @@ export default function TelemarketingPage() {
   const [logs, setLogs] = useState<ConversationLog[]>([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsLoadError, setLogsLoadError] = useState(false);
+  const [shareLog, setShareLog] = useState<ConversationLog | null>(null);
 
   // Form
   const [formCallStatusId, setFormCallStatusId] = useState("");
@@ -677,6 +679,12 @@ export default function TelemarketingPage() {
                             {log.notes
                               ? <p style={{ margin: 0, color: "#374151", fontSize: 13, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{log.notes}</p>
                               : <p style={{ margin: 0, color: "#bbb", fontSize: 12, fontStyle: "italic" }}>אין הערות</p>}
+                            <div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}>
+                              <button onClick={() => setShareLog(log)} title="שתף תקציר שיחה"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", cursor: "pointer", color: "#209dd7", fontSize: 12, fontWeight: 700, padding: 0 }}>
+                                <Share2 size={13} /> שתף
+                              </button>
+                            </div>
                           </div>
                         );
                       })}
@@ -688,6 +696,16 @@ export default function TelemarketingPage() {
           )}
         </div>
       </div>
+
+      {shareLog && currentUser && (
+        <ShareCallDialog
+          log={shareLog}
+          voterName={selectedVoter ? `${selectedVoter.firstName} ${selectedVoter.lastName}` : ""}
+          users={state.users}
+          currentUser={currentUser}
+          onClose={() => setShareLog(null)}
+        />
+      )}
 
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

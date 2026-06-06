@@ -56,6 +56,23 @@ service cloud.firestore {
       allow delete: if (isAdmin() || isSuperAdmin()) && canDelete();
     }
 
+    // ---- callShares — identity-gated links to a single call summary ----
+    // Read: only the chosen recipient, the sharer, or a company admin / super.
+    // Create: admins or telemarketing reps, within their own company.
+    // Delete (revoke): the sharer or a company admin / super. No updates.
+    match /callShares/{id} {
+      allow read: if isSignedIn() && (isSuperAdmin() ||
+        (resource.data.tenantId == myTenant() &&
+          (request.auth.uid == resource.data.sharedWithUserId
+            || request.auth.uid == resource.data.sharedById
+            || isAdmin())));
+      allow create: if isSignedIn() && request.resource.data.tenantId == myTenant()
+        && (isAdmin() || request.auth.token.role == 'telemarketing');
+      allow delete: if isSignedIn() && (isSuperAdmin() ||
+        (resource.data.tenantId == myTenant() &&
+          (request.auth.uid == resource.data.sharedById || isAdmin())));
+    }
+
     // ---- passwordResets — server only (Admin SDK bypasses rules) ----
     match /passwordResets/{id} { allow read, write: if false; }
 

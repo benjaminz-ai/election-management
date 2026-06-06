@@ -92,6 +92,19 @@ export type ConversationLog = {
   tenantId?: string;
 };
 
+// A shareable, identity-gated link to a single call summary (conversationLog).
+// Only the chosen recipient (or the sharer / an admin) may open it.
+export type CallShare = {
+  id: string;              // = shareId, used in the URL (random, unguessable)
+  tenantId: string;
+  logId: string;           // the shared conversationLog
+  voterId: string;
+  sharedWithUserId: string;
+  sharedById: string;
+  note?: string;
+  createdAt: string;
+};
+
 export type UserRole = "admin" | "field" | "telemarketing" | "group_leader" | "division_head";
 
 export type AppUser = {
