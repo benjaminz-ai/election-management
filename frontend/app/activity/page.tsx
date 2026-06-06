@@ -75,13 +75,20 @@ export default function ActivityPage() {
   // Load today's data on first mount.
   useEffect(() => { fetchLogs(); /* eslint-disable-next-line */ }, []);
 
-  // Aggregate per user.
+  // Aggregate per user. This report measures TELEMARKETING output, so we seed
+  // every telemarketing rep — even those with zero calls in the range, so the
+  // manager can see who didn't produce. Any other user who logged calls still
+  // appears too (so totals always reconcile).
   const aggs = useMemo<Agg[]>(() => {
     const map = new Map<string, Agg>();
-    for (const log of logs) {
-      const uid = log.userId || "—";
+    const ensure = (uid: string) => {
       let a = map.get(uid);
       if (!a) { a = { userId: uid, total: 0, byCall: {}, statusUpdates: 0, logs: [] }; map.set(uid, a); }
+      return a;
+    };
+    for (const u of users) if (u.role === "telemarketing") ensure(u.id);
+    for (const log of logs) {
+      const a = ensure(log.userId || "—");
       a.total++;
       if (log.callStatus) a.byCall[log.callStatus] = (a.byCall[log.callStatus] || 0) + 1;
       if (log.statusId) a.statusUpdates++;
@@ -89,7 +96,7 @@ export default function ActivityPage() {
     }
     for (const a of map.values()) a.logs.sort((x, y) => y.timestamp.localeCompare(x.timestamp));
     return [...map.values()].sort((x, y) => y.total - x.total);
-  }, [logs]);
+  }, [logs, users]);
 
   // Company-wide totals + per-call-status breakdown.
   const totals = useMemo(() => {
@@ -99,7 +106,8 @@ export default function ActivityPage() {
       if (log.callStatus) byCall[log.callStatus] = (byCall[log.callStatus] || 0) + 1;
       if (log.statusId) statusUpdates++;
     }
-    return { calls: logs.length, users: aggs.length, statusUpdates, byCall };
+    const active = aggs.filter((a) => a.total > 0).length;
+    return { calls: logs.length, users: active, statusUpdates, byCall };
   }, [logs, aggs]);
 
   const fmtTime = (iso: string) => {
@@ -138,8 +146,8 @@ export default function ActivityPage() {
   return (
     <div>
       <PageHeader
-        title="תפוקות צוות"
-        subtitle="כמות שיחות ועדכוני סטטוס לפי משתמש, בטווח תאריכים נבחר"
+        title="תפוקות טלמרקטינג"
+        subtitle="כמות שיחות ועדכוני סטטוס לפי נציג, בטווח תאריכים נבחר"
         action={
           aggs.length > 0 ? (
             <button onClick={exportCsv}
@@ -214,10 +222,11 @@ export default function ActivityPage() {
               {aggs.map((a) => {
                 const u = userById.get(a.userId);
                 const isOpen = expanded === a.userId;
+                const zero = a.total === 0;
                 return (
                   <Fragment key={a.userId}>
-                    <tr onClick={() => setExpanded(isOpen ? null : a.userId)}
-                      style={{ borderTop: "1px solid var(--border,#e2e8f0)", cursor: "pointer", background: isOpen ? "rgba(32,157,215,0.04)" : undefined }}>
+                    <tr onClick={() => { if (!zero) setExpanded(isOpen ? null : a.userId); }}
+                      style={{ borderTop: "1px solid var(--border,#e2e8f0)", cursor: zero ? "default" : "pointer", opacity: zero ? 0.5 : 1, background: isOpen ? "rgba(32,157,215,0.04)" : undefined }}>
                       <td style={{ ...td, fontWeight: 700, color: "var(--dark-navy)" }}>{userName(a.userId)}</td>
                       <td style={td}>{u ? (ROLE_LABELS[u.role] ?? u.role) : "—"}</td>
                       <td style={{ ...td, textAlign: "center", fontWeight: 800, color: "#209dd7", fontSize: 16 }}>{a.total}</td>
@@ -232,7 +241,7 @@ export default function ActivityPage() {
                       </td>
                       <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{a.statusUpdates}</td>
                       <td style={{ ...td, textAlign: "center", color: "#94a3b8" }}>
-                        {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        {zero ? null : isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                       </td>
                     </tr>
                     {isOpen && (
