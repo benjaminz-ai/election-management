@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useStore, getActiveTenant } from "@/lib/store";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { ConversationLog } from "@/types";
+import { ConversationLog, AppUser } from "@/types";
 import PageHeader from "@/components/ui/PageHeader";
 import {
   Activity, Loader2, ChevronDown, ChevronUp, Phone, RefreshCw, Users, Download,
@@ -230,6 +230,11 @@ export default function ActivityPage() {
         </div>
       )}
 
+      {/* Advanced report: calls per day, stacked by rep */}
+      {loaded && !error && totals.calls > 0 && (
+        <DailyChart logs={logs} reps={sortedAggs} userById={userById} from={from} to={to} />
+      )}
+
       {/* Per-user table */}
       {loaded && !error && (
         <div className="card" style={{ overflow: "hidden" }}>
@@ -361,6 +366,97 @@ function Chip({ color, label, count, small }: { color: string; label: string; co
       <span style={{ width: 7, height: 7, borderRadius: "50%", background: color, display: "inline-block" }} />
       {label}{count != null && <strong style={{ fontWeight: 800 }}>· {count}</strong>}
     </span>
+  );
+}
+
+const REP_PALETTE = ["#209dd7", "#753991", "#16a34a", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const dayKeyLocal = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+function eachDay(from: string, to: string): string[] {
+  const out: string[] = [];
+  const s = new Date(`${from}T00:00:00`), e = new Date(`${to}T00:00:00`);
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return out;
+  for (const d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) out.push(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`);
+  return out;
+}
+
+// Calls-per-day chart, stacked by rep — lets the manager compare reps over time.
+function DailyChart({ logs, reps, userById, from, to }: {
+  logs: ConversationLog[];
+  reps: { userId: string; total: number }[];
+  userById: Map<string, AppUser>;
+  from: string; to: string;
+}) {
+  const days = useMemo(() => eachDay(from, to), [from, to]);
+  const repList = useMemo(() => reps.filter((r) => r.total > 0), [reps]);
+  const colorOf = useMemo(() => {
+    const m = new Map<string, string>();
+    repList.forEach((r, i) => m.set(r.userId, REP_PALETTE[i % REP_PALETTE.length]));
+    return m;
+  }, [repList]);
+
+  const { byDay, dayTotals, maxTotal } = useMemo(() => {
+    const byDay = new Map<string, Map<string, number>>();
+    days.forEach((d) => byDay.set(d, new Map()));
+    for (const l of logs) {
+      const m = byDay.get(dayKeyLocal(l.timestamp));
+      if (!m) continue;
+      m.set(l.userId, (m.get(l.userId) || 0) + 1);
+    }
+    const dayTotals = days.map((d) => { let t = 0; byDay.get(d)!.forEach((v) => (t += v)); return t; });
+    const maxTotal = Math.max(1, ...dayTotals);
+    return { byDay, dayTotals, maxTotal };
+  }, [logs, days]);
+
+  const nameOf = (id: string) => { const u = userById.get(id); return u ? `${u.firstName} ${u.lastName}` : "—"; };
+  const labelStep = Math.max(1, Math.ceil(days.length / 15));
+  const gap = days.length > 40 ? 1 : days.length > 20 ? 2 : 4;
+  const H = 200;
+  if (days.length === 0) return null;
+
+  return (
+    <div className="card" style={{ padding: "16px 18px", marginBottom: 22 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--dark-navy)" }}>שיחות לפי יום (מוערם לפי נציג)</div>
+        <div style={{ fontSize: 12, color: "var(--gray-text)" }}>מקסימום ליום: {maxTotal}</div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "flex-end", gap, height: H }}>
+        {days.map((day, i) => {
+          const m = byDay.get(day)!;
+          const total = dayTotals[i];
+          return (
+            <div key={day} title={`${day.slice(8)}/${day.slice(5, 7)} — ${total} שיחות`}
+              style={{ flex: 1, minWidth: 0, height: "100%", display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+              <div style={{ height: `${(total / maxTotal) * 100}%`, minHeight: total > 0 ? 2 : 0, display: "flex", flexDirection: "column-reverse", borderRadius: 3, overflow: "hidden" }}>
+                {repList.map((r) => {
+                  const c = m.get(r.userId) || 0;
+                  if (!c) return null;
+                  return <div key={r.userId} title={`${nameOf(r.userId)}: ${c}`} style={{ height: `${(c / total) * 100}%`, background: colorOf.get(r.userId) }} />;
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ display: "flex", gap, marginTop: 6 }}>
+        {days.map((day, i) => (
+          <div key={day} style={{ flex: 1, minWidth: 0, textAlign: "center", fontSize: 9, color: "#94a3b8", whiteSpace: "nowrap" }}>
+            {i % labelStep === 0 ? `${day.slice(8)}/${day.slice(5, 7)}` : ""}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14 }}>
+        {repList.map((r) => (
+          <span key={r.userId} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-primary,#1e293b)" }}>
+            <span style={{ width: 10, height: 10, borderRadius: 3, background: colorOf.get(r.userId), display: "inline-block" }} />
+            {nameOf(r.userId)} <strong style={{ fontWeight: 800 }}>· {r.total}</strong>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
