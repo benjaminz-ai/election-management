@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
+import { useRouter } from "next/navigation";
 import { useStore, getActiveTenant } from "@/lib/store";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
@@ -31,6 +32,7 @@ type Agg = {
 };
 
 export default function ActivityPage() {
+  const router = useRouter();
   const { state } = useStore();
   const { users, callStatuses, statuses, voters } = state;
 
@@ -263,9 +265,11 @@ export default function ActivityPage() {
                                   const cs = callById.get(l.callStatus);
                                   const ss = statusById.get(l.statusId);
                                   return (
-                                    <tr key={l.id} style={{ borderTop: "1px solid #eef2f7" }}>
+                                    <tr key={l.id} onClick={() => router.push(`/telemarketing?voter=${l.voterId}`)}
+                                      title="פתח את הבוחר במסך הטלמרקטינג"
+                                      style={{ borderTop: "1px solid #eef2f7", cursor: "pointer" }}>
                                       <td style={tdIn}>{fmtTime(l.timestamp)}</td>
-                                      <td style={tdIn}>{voterName(l.voterId)}</td>
+                                      <td style={{ ...tdIn, color: "#209dd7", fontWeight: 600 }}>{voterName(l.voterId)}</td>
                                       <td style={tdIn}>{cs ? <Chip color={cs.color} label={cs.name} small /> : "—"}</td>
                                       <td style={tdIn}>{ss ? <Chip color={ss.color} label={ss.name} small /> : "—"}</td>
                                       <td style={{ ...tdIn, color: "#475569" }}>{l.notes || "—"}</td>

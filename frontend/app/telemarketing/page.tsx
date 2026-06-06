@@ -163,6 +163,22 @@ export default function TelemarketingPage() {
     setSaveError("");
   }, [callStatuses, defaultStatusId]);
 
+  // Deep link: /telemarketing?voter=<id> — auto-filter to that voter and select
+  // them (e.g. when opened from the telemarketing productivity report). The
+  // selected voter must be inside the filtered list, so we set the search text
+  // to their name. Runs once, after voters have loaded.
+  const deepLinkApplied = useRef(false);
+  useEffect(() => {
+    if (deepLinkApplied.current || voters.length === 0) return;
+    const vid = new URLSearchParams(window.location.search).get("voter");
+    if (!vid) { deepLinkApplied.current = true; return; }
+    const v = voters.find((x) => x.id === vid);
+    if (!v) return;
+    deepLinkApplied.current = true;
+    setFilterText(`${v.firstName} ${v.lastName}`);
+    handleSelectVoter(v);
+  }, [voters, handleSelectVoter]);
+
   const handleNavigate = (direction: "prev" | "next") => {
     if (!filteredVoters.length) return;
     const nextIndex = selectedIndex === -1
