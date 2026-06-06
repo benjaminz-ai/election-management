@@ -270,12 +270,14 @@ export default function UsersPage() {
                 <td style={tdStyle}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <div style={{
-                      width: 38, height: 38, borderRadius: "50%", flexShrink: 0,
-                      background: u.isFrozen ? "#e2e8f0" : "linear-gradient(135deg, var(--blue-primary), var(--purple-secondary))",
+                      width: 38, height: 38, borderRadius: "50%", flexShrink: 0, overflow: "hidden",
+                      background: (u.photoURL || u.isFrozen) ? "#e2e8f0" : "linear-gradient(135deg, var(--blue-primary), var(--purple-secondary))",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       color: u.isFrozen ? "#94a3b8" : "#fff", fontWeight: 700, fontSize: 13
                     }}>
-                      {u.firstName[0]}{u.lastName[0]}
+                      {u.photoURL
+                        ? <img src={u.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: u.isFrozen ? 0.6 : 1 }} />
+                        : <>{u.firstName[0]}{u.lastName[0]}</>}
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14, color: "var(--navy)" }}>
@@ -371,8 +373,10 @@ export default function UsersPage() {
       <div className="mobile-voter-cards" style={{ display: "none", flexDirection: "column", gap: 10 }}>
         {visibleUsers.map((u) => (
           <div key={u.id} className="card" style={{ padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, opacity: u.isFrozen ? 0.7 : 1 }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, background: u.isFrozen ? "#e2e8f0" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", color: u.isFrozen ? "#94a3b8" : "#fff", fontWeight: 700, fontSize: 15 }}>
-              {u.firstName[0]}{u.lastName[0]}
+            <div style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0, overflow: "hidden", background: (u.photoURL || u.isFrozen) ? "#e2e8f0" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", color: u.isFrozen ? "#94a3b8" : "#fff", fontWeight: 700, fontSize: 15 }}>
+              {u.photoURL
+                ? <img src={u.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", opacity: u.isFrozen ? 0.6 : 1 }} />
+                : <>{u.firstName[0]}{u.lastName[0]}</>}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 14, color: "var(--navy)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
