@@ -106,6 +106,7 @@ export type AppUser = {
   password: string;
   tenantId?: string;
   isSuperAdmin?: boolean;
+  photoURL?: string;     // self-uploaded avatar (small resized data URL)
 };
 
 // A company / workspace (multi-tenancy).

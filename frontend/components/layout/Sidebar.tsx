@@ -40,6 +40,15 @@ const adminLinks = [
 ];
 const fieldLink = { href: "/field", label: "האנשים שלי", icon: Contact };
 
+function Avatar({ user, size }: { user: { firstName: string; lastName: string; isFrozen?: boolean; photoURL?: string }; size: number }) {
+  const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`;
+  return (
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: user.photoURL ? "#1e293b" : user.isFrozen ? "#334155" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: Math.round(size * 0.34) }}>
+      {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+    </div>
+  );
+}
+
 export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router   = useRouter();
@@ -158,11 +167,10 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {/* User footer */}
         {currentUser && (
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: isCollapsed ? "12px 8px" : "12px 14px" }}>
-            {!isCollapsed && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <div style={{ width: 32, height: 32, borderRadius: "50%", background: currentUser.isFrozen ? "#334155" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#fff", fontWeight: 700, fontSize: 11 }}>
-                  {currentUser.firstName[0]}{currentUser.lastName[0]}
-                </div>
+            {!isCollapsed ? (
+              <button onClick={() => handleNav("/profile")} title="הפרופיל שלי"
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, marginBottom: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "8px 10px", cursor: "pointer", textAlign: "right" }}>
+                <Avatar user={currentUser} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {currentUser.firstName} {currentUser.lastName}
@@ -172,7 +180,12 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                     {ROLE_LABELS[currentUser.role] ?? currentUser.role}
                   </div>
                 </div>
-              </div>
+              </button>
+            ) : (
+              <button onClick={() => handleNav("/profile")} title="הפרופיל שלי"
+                style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                <Avatar user={currentUser} size={32} />
+              </button>
             )}
             <button onClick={handleLogout} title={isCollapsed ? "יציאה" : undefined}
               style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: isCollapsed ? "center" : "flex-start", gap: 8, padding: isCollapsed ? "8px" : "7px 10px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.18)", borderRadius: 8, color: "#f87171", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>

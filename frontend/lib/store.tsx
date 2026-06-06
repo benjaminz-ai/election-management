@@ -87,6 +87,7 @@ type StoreContextType = {
   addUser: (user: AppUser) => void;
   updateUser: (user: AppUser) => void;
   freezeUser: (id: string, frozen: boolean) => Promise<void>;
+  updateMyPhoto: (id: string, photoURL: string) => Promise<void>;
   refreshUsers: () => Promise<void>;
   addReminder: (r: Reminder) => void;
   updateReminder: (r: Reminder) => void;
@@ -691,6 +692,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // A user updates ONLY their own profile photo. Firestore rules allow a signed-in
+  // user to change just the photoURL field of their own doc. Optimistic + revert.
+  const updateMyPhoto = async (id: string, photoURL: string) => {
+    const prev = stateRef.current.users.find((u) => u.id === id)?.photoURL ?? "";
+    setState((s) => ({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, photoURL } : u)) }));
+    try {
+      await updateDoc(doc(db, "users", id), { photoURL });
+    } catch (err) {
+      console.error("updateMyPhoto failed:", err);
+      setState((s) => ({ ...s, users: s.users.map((u) => (u.id === id ? { ...u, photoURL: prev } : u)) }));
+      throw err;
+    }
+  };
+
 
   // ── Reminders (personal) ──────────────────────────────────────────────────────
 
@@ -771,6 +786,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addUser,
         updateUser,
         freezeUser,
+        updateMyPhoto,
         refreshUsers,
         addReminder,
         updateReminder,

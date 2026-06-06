@@ -47,7 +47,12 @@ service cloud.firestore {
     match /users/{id} {
       allow read:   if canRead();
       allow create: if (isAdmin() || isSuperAdmin()) && canCreate();
-      allow update: if (isAdmin() || isSuperAdmin()) && canUpdate();
+      // Admins update any user in their company; super admin updates anyone.
+      // Additionally, ANY user may update ONLY their own profile photo
+      // (photoURL) — nothing else (role, tenantId, isFrozen, etc. stay locked).
+      allow update: if ((isAdmin() || isSuperAdmin()) && canUpdate())
+        || (isSignedIn() && request.auth.uid == id
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoURL']));
       allow delete: if (isAdmin() || isSuperAdmin()) && canDelete();
     }
 
