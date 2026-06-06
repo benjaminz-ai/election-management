@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
   PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
-  X, ChevronRight, ChevronLeft, Bell, Contact, Building2, Activity,
+  X, ChevronRight, ChevronLeft, Bell, Contact, Building2, Activity, Pencil, Camera,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { isFieldRole, canAccess } from "@/lib/permissions";
@@ -40,11 +40,19 @@ const adminLinks = [
 ];
 const fieldLink = { href: "/field", label: "האנשים שלי", icon: Contact };
 
-function Avatar({ user, size }: { user: { firstName: string; lastName: string; isFrozen?: boolean; photoURL?: string }; size: number }) {
+function Avatar({ user, size, editable }: { user: { firstName: string; lastName: string; isFrozen?: boolean; photoURL?: string }; size: number; editable?: boolean }) {
   const initials = `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`;
+  const badge = Math.max(14, Math.round(size * 0.46));
   return (
-    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: user.photoURL ? "#1e293b" : user.isFrozen ? "#334155" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: Math.round(size * 0.34) }}>
-      {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
+      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", background: user.photoURL ? "#1e293b" : user.isFrozen ? "#334155" : "linear-gradient(135deg,#209dd7,#753991)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: Math.round(size * 0.34) }}>
+        {user.photoURL ? <img src={user.photoURL} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : initials}
+      </div>
+      {editable && (
+        <span style={{ position: "absolute", bottom: -2, left: -2, width: badge, height: badge, borderRadius: "50%", background: "#209dd7", border: "2px solid #0c2a4a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Camera size={Math.round(badge * 0.55)} color="#fff" />
+        </span>
+      )}
     </div>
   );
 }
@@ -168,9 +176,9 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         {currentUser && (
           <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", padding: isCollapsed ? "12px 8px" : "12px 14px" }}>
             {!isCollapsed ? (
-              <button onClick={() => handleNav("/profile")} title="הפרופיל שלי"
+              <button onClick={() => handleNav("/profile")} title="עריכת הפרופיל שלי"
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, marginBottom: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 10, padding: "8px 10px", cursor: "pointer", textAlign: "right" }}>
-                <Avatar user={currentUser} size={32} />
+                <Avatar user={currentUser} size={34} editable />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ color: "#e2e8f0", fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {currentUser.firstName} {currentUser.lastName}
@@ -180,11 +188,14 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                     {ROLE_LABELS[currentUser.role] ?? currentUser.role}
                   </div>
                 </div>
+                <span title="עריכת פרופיל" style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: 26, height: 26, borderRadius: 8, background: "rgba(32,157,215,0.18)", color: "#7cc6ec" }}>
+                  <Pencil size={13} />
+                </span>
               </button>
             ) : (
-              <button onClick={() => handleNav("/profile")} title="הפרופיל שלי"
+              <button onClick={() => handleNav("/profile")} title="עריכת הפרופיל שלי"
                 style={{ width: "100%", display: "flex", justifyContent: "center", marginBottom: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}>
-                <Avatar user={currentUser} size={32} />
+                <Avatar user={currentUser} size={32} editable />
               </button>
             )}
             <button onClick={handleLogout} title={isCollapsed ? "יציאה" : undefined}
