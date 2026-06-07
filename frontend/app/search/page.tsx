@@ -66,6 +66,9 @@ export default function SearchPage() {
   // Voters who were never set have an empty statusId but DISPLAY as the default
   // status, so any "support status" comparison must fall back to it.
   const defaultStatusId = useMemo(() => statuses.find((s) => s.isDefault)?.id ?? statuses[0]?.id ?? "", [statuses]);
+  // The "default" call result (voter never called) is the callStatus named "ברירת מחדל".
+  // New voters have an empty lastCallStatusId but should match this when filtering.
+  const defaultCallStatusId = useMemo(() => callStatuses.find((c) => c.name.trim() === "ברירת מחדל")?.id ?? "", [callStatuses]);
 
   // ── Filters ────────────────────────────────────────────────
   const [textMode, setTextMode] = useState<TextMode>("lastName");
@@ -179,12 +182,14 @@ export default function SearchPage() {
       if (addrApartment && v.address.apartment !== addrApartment) return false;
       if (categoryFilter && (statusMap.get(v.statusId ?? "")?.category ?? "neutral") !== categoryFilter) return false;
       // Last-call-result filter (replaces the old redundant "category" dropdown).
-      if (callStatusFilter && v.lastCallStatusId !== callStatusFilter) return false;
+      // Empty lastCallStatusId falls back to the default call status so that
+      // filtering by "ברירת מחדל" matches voters who were never called.
+      if (callStatusFilter && (v.lastCallStatusId || defaultCallStatusId) !== callStatusFilter) return false;
       if (filterVoted === "yes" && !v.hasVoted) return false;
       if (filterVoted === "no" && v.hasVoted) return false;
       return true;
     });
-  }, [voters, query, textMode, statusId, defaultStatusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, callStatusFilter, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
+  }, [voters, query, textMode, statusId, defaultStatusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, callStatusFilter, defaultCallStatusId, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
 
   const results = useMemo(() => {
     return [...filtered].sort((a, b) => {

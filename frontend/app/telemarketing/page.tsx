@@ -96,6 +96,14 @@ export default function TelemarketingPage() {
     [statuses]
   );
 
+  // CallStatus has no isDefault flag, so the "default" call result (a voter that
+  // was never called) is the one named "ברירת מחדל". A new voter has an empty
+  // lastCallStatusId but should be treated as this default when filtering.
+  const defaultCallStatusId = useMemo(
+    () => callStatuses.find((c) => c.name.trim() === "ברירת מחדל")?.id ?? "",
+    [callStatuses]
+  );
+
   useEffect(() => {
     if (callStatuses.length > 0 && !formCallStatusId) setFormCallStatusId(callStatuses[0].id);
   }, [callStatuses, formCallStatusId]);
@@ -105,7 +113,7 @@ export default function TelemarketingPage() {
     const text = filterText.toLowerCase().trim();
     return voters.filter((v) => {
       if (filterStatusId && (v.statusId ?? defaultStatusId) !== filterStatusId) return false;
-      if (filterCallStatusId && v.lastCallStatusId !== filterCallStatusId) return false;
+      if (filterCallStatusId && (v.lastCallStatusId || defaultCallStatusId) !== filterCallStatusId) return false;
       if (filterVoted === "yes" && !v.hasVoted) return false;
       if (filterVoted === "no" && v.hasVoted) return false;
       if (filterSubGroupId) {
@@ -129,7 +137,7 @@ export default function TelemarketingPage() {
       }
       return true;
     });
-  }, [voters, filterText, filterStatusId, filterCallStatusId, filterVoted, filterGroupId, filterSubGroupId, filterGroupLeaderId, filterStreet, defaultStatusId, groupLeaders, subGroups]);
+  }, [voters, filterText, filterStatusId, filterCallStatusId, filterVoted, filterGroupId, filterSubGroupId, filterGroupLeaderId, filterStreet, defaultStatusId, defaultCallStatusId, groupLeaders, subGroups]);
 
   const hasActiveFilter = !!(filterText || filterStatusId || filterCallStatusId || filterVoted || filterGroupId || filterSubGroupId || filterGroupLeaderId || filterStreet);
   const clearFilters = () => { setFilterText(""); setFilterStatusId(""); setFilterCallStatusId(""); setFilterVoted(""); setFilterGroupId(""); setFilterSubGroupId(""); setFilterGroupLeaderId(""); setFilterStreet(""); };
