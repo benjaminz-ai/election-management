@@ -14,6 +14,9 @@ import PaginationFooter from "@/components/ui/PaginationFooter";
 type TextMode = "lastName" | "street" | "streetAndNumber";
 type VotedFilter = "" | "yes" | "no";
 
+// Sentinel value for the "ללא קבוצה" (no group) option in the group filter.
+const NO_GROUP = "__none__";
+
 const TEXT_MODES: { key: TextMode; label: string; placeholder: string }[] = [
   { key: "lastName",        label: "שם משפחה",   placeholder: "הכנס שם משפחה..." },
   { key: "street",          label: "רחוב",        placeholder: "הכנס שם רחוב..." },
@@ -70,6 +73,17 @@ export default function SearchPage() {
   // New voters have an empty lastCallStatusId but should match this when filtering.
   const defaultCallStatusId = useMemo(() => callStatuses.find((c) => c.name.trim() === "ברירת מחדל")?.id ?? "", [callStatuses]);
 
+  // Distinct import batches (by importedAt), newest first — for the "מנת ייבוא" filter.
+  const importBatches = useMemo(() => {
+    const set = new Map<string, number>();
+    voters.forEach((v) => { if (v.importedAt) set.set(v.importedAt, (set.get(v.importedAt) ?? 0) + 1); });
+    return [...set.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([iso, count]) => {
+      const d = new Date(iso);
+      const label = `${d.toLocaleDateString("he-IL")} ${d.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })} (${count})`;
+      return { value: iso, label };
+    });
+  }, [voters]);
+
   // ── Filters ────────────────────────────────────────────────
   const [textMode, setTextMode] = useState<TextMode>("lastName");
   const [query, setQuery] = useState("");
@@ -81,6 +95,7 @@ export default function SearchPage() {
   const [city, setCity] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(""); // kept for reports drill-down (?category=) — no visible dropdown
   const [callStatusFilter, setCallStatusFilter] = useState(""); // "תוצאת שיחה אחרונה" — filters by lastCallStatusId
+  const [importBatchFilter, setImportBatchFilter] = useState(""); // "מנת ייבוא" — filters by importedAt
   const [filterVoted, setFilterVoted] = useState<VotedFilter>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -155,7 +170,7 @@ export default function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || callStatusFilter || filterVoted || addrLastName || addrStreet || addrNumber || addrApartment;
+    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || callStatusFilter || importBatchFilter || filterVoted || addrLastName || addrStreet || addrNumber || addrApartment;
     if (!hasAnyFilter) return [];
     return voters.filter((v) => {
       if (q) {
@@ -168,7 +183,8 @@ export default function SearchPage() {
       // Support-status filter — fall back to the default status so that
       // filtering by "ברירת מחדל" matches voters who were never set (empty statusId).
       if (statusId && (v.statusId ?? defaultStatusId) !== statusId) return false;
-      if (groupId && !v.groupIds.includes(groupId)) return false;
+      if (groupId === NO_GROUP) { if (v.groupIds.length > 0) return false; }
+      else if (groupId && !v.groupIds.includes(groupId)) return false;
       if (subGroupId && !(v.subGroupIds ?? []).includes(subGroupId)) return false;
       if (leaderId && !v.groupIds.some((gid) => leaderByGroupId[gid] === leaderId)) return false;
       if (divisionId && !v.groupIds.some((gid) => {
@@ -185,11 +201,13 @@ export default function SearchPage() {
       // Empty lastCallStatusId falls back to the default call status so that
       // filtering by "ברירת מחדל" matches voters who were never called.
       if (callStatusFilter && (v.lastCallStatusId || defaultCallStatusId) !== callStatusFilter) return false;
+      // Import-batch filter (מנת ייבוא) — all records of one import share importedAt.
+      if (importBatchFilter && v.importedAt !== importBatchFilter) return false;
       if (filterVoted === "yes" && !v.hasVoted) return false;
       if (filterVoted === "no" && v.hasVoted) return false;
       return true;
     });
-  }, [voters, query, textMode, statusId, defaultStatusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, callStatusFilter, defaultCallStatusId, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
+  }, [voters, query, textMode, statusId, defaultStatusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, callStatusFilter, defaultCallStatusId, importBatchFilter, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
 
   const results = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -239,13 +257,13 @@ export default function SearchPage() {
   const addrActive = Boolean(addrLastName || addrStreet || addrNumber || addrApartment);
   const activeFilterCount =
     (statusId ? 1 : 0) + (groupId ? 1 : 0) + (leaderId ? 1 : 0) +
-    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (callStatusFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
+    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (callStatusFilter ? 1 : 0) + (importBatchFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
 
   const clearAddress = () => { setAddrLastName(""); setAddrStreet(""); setAddrNumber(""); setAddrApartment(""); };
 
   const resetFilters = () => {
     setQuery(""); setStatusId(""); setGroupId(""); setLeaderId("");
-    setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setCallStatusFilter(""); setFilterVoted("");
+    setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setCallStatusFilter(""); setImportBatchFilter(""); setFilterVoted("");
     clearAddress();
     setSelected(new Set());
   };
@@ -399,7 +417,9 @@ export default function SearchPage() {
               <FilterSelect label="סטטוס" value={statusId} onChange={setStatusId}
                 options={statuses.map((s) => ({ value: s.id, label: s.name }))} />
               <FilterSelect label="קבוצה" value={groupId} onChange={setGroupId}
-                options={groups.map((g) => ({ value: g.id, label: g.name }))} />
+                options={[{ value: NO_GROUP, label: "ללא קבוצה" }, ...groups.map((g) => ({ value: g.id, label: g.name }))]} />
+              <FilterSelect label="מנת ייבוא" value={importBatchFilter} onChange={setImportBatchFilter}
+                options={importBatches} />
               <FilterSelect label="תת-קבוצה" value={subGroupId} onChange={setSubGroupId}
                 options={subGroups.map((sg) => ({ value: sg.id, label: sg.name }))} />
               <FilterSelect label="ראש קבוצה" value={leaderId} onChange={setLeaderId}

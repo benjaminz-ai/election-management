@@ -18,6 +18,9 @@ import ShareCallDialog from "./ShareCallDialog";
 
 const generateId = () => `cl_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+// Sentinel value for the "ללא קבוצה" (no group) option in the group filter.
+const NO_GROUP = "__none__";
+
 function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleString("he-IL", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" });
@@ -120,6 +123,8 @@ export default function TelemarketingPage() {
       if (filterVoted === "no" && v.hasVoted) return false;
       if (filterSubGroupId) {
         if (!(v.subGroupIds ?? []).includes(filterSubGroupId)) return false;
+      } else if (filterGroupId === NO_GROUP) {
+        if (v.groupIds.length > 0) return false;
       } else if (filterGroupId) {
         const inGroup = v.groupIds.includes(filterGroupId);
         const inGroupViaSub = (v.subGroupIds ?? []).some(sgid => { const sg = subGroups.find(x => x.id === sgid); return sg?.parentGroupId === filterGroupId; });
@@ -291,6 +296,7 @@ export default function TelemarketingPage() {
                 <select value={filterGroupId} onChange={(e) => { setFilterGroupId(e.target.value); setFilterSubGroupId(""); }}
                   style={{ width: "100%", padding: "7px 8px", border: "1.5px solid #e2e8f0", borderRadius: 7, fontSize: 12, color: "#374151", background: "#fff", outline: "none" }}>
                   <option value="">הכל</option>
+                  <option value={NO_GROUP}>ללא קבוצה</option>
                   {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
