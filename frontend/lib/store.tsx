@@ -332,8 +332,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // ── Groups ────────────────────────────────────────────────────────────────────
 
 
-  const importVoters = (newVoters: Voter[]) => {
-    if (!newVoters.length) return;
+  const importVoters = (rawVoters: Voter[]) => {
+    if (!rawVoters.length) return;
+
+    // Stamp the whole import batch with one shared timestamp so they can be
+    // filtered together later as an "import batch" (מנת ייבוא).
+    const importedAt = new Date().toISOString();
+    const newVoters = rawVoters.map((v) => ({ ...v, importedAt }));
 
     // Build map: groupId → new voter IDs to add
     const byGroup = new Map<string, string[]>();

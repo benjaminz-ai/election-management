@@ -16,6 +16,7 @@ export type Voter = {
   statusId?: string;
   lastCallStatusId?: string;
   hasVoted?: boolean;
+  importedAt?: string;   // ISO timestamp stamped at import time (same for a whole import batch); empty for manually-added voters
 };
 
 export type SubGroup = {
