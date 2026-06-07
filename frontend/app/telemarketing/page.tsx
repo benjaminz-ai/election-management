@@ -105,8 +105,10 @@ export default function TelemarketingPage() {
   );
 
   useEffect(() => {
-    if (callStatuses.length > 0 && !formCallStatusId) setFormCallStatusId(callStatuses[0].id);
-  }, [callStatuses, formCallStatusId]);
+    // Default a fresh form to the "ברירת מחדל" call result (same as the filter
+    // and the list badge), not to the first call status ("ענה").
+    if (callStatuses.length > 0 && !formCallStatusId) setFormCallStatusId(defaultCallStatusId || callStatuses[0].id);
+  }, [callStatuses, formCallStatusId, defaultCallStatusId]);
 
   // Filtered voters
   const filteredVoters = useMemo(() => {
@@ -166,7 +168,9 @@ export default function TelemarketingPage() {
   // Select voter
   const handleSelectVoter = useCallback((v: Voter) => {
     setSelectedVoterId(v.id);
-    setFormCallStatusId(v.lastCallStatusId ?? callStatuses[0]?.id ?? "");
+    // A voter who was never called keeps the "ברירת מחדל" call result until the
+    // rep actually picks a different one — matching the filter and the badge.
+    setFormCallStatusId(v.lastCallStatusId || defaultCallStatusId || callStatuses[0]?.id || "");
     setFormStatusId(v.statusId ?? defaultStatusId);
     setFormHasVoted(v.hasVoted ?? false);
     setFormNotes("");
