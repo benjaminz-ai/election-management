@@ -57,12 +57,15 @@ function loadColVisible(): Record<ColId, boolean> {
 export default function SearchPage() {
   const { state, bulkUpdateVoters } = useStore();
   const { currentUser } = useAuth();
-  const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses } = state;
+  const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses, callStatuses } = state;
 
   // Bulk-action safety cap: limited roles can change at most BULK_LIMIT records per action
   const bulkLimit = currentUser && (currentUser.role === "telemarketing" || currentUser.role === "field") ? 10 : Infinity;
   const capped = bulkLimit !== Infinity;
   const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
+  // Voters who were never set have an empty statusId but DISPLAY as the default
+  // status, so any "support status" comparison must fall back to it.
+  const defaultStatusId = useMemo(() => statuses.find((s) => s.isDefault)?.id ?? statuses[0]?.id ?? "", [statuses]);
 
   // ── Filters ────────────────────────────────────────────────
   const [textMode, setTextMode] = useState<TextMode>("lastName");
@@ -73,7 +76,8 @@ export default function SearchPage() {
   const [divisionId, setDivisionId] = useState("");
   const [subGroupId, setSubGroupId] = useState("");
   const [city, setCity] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState(""); // kept for reports drill-down (?category=) — no visible dropdown
+  const [callStatusFilter, setCallStatusFilter] = useState(""); // "תוצאת שיחה אחרונה" — filters by lastCallStatusId
   const [filterVoted, setFilterVoted] = useState<VotedFilter>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -148,7 +152,7 @@ export default function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || filterVoted || addrLastName || addrStreet || addrNumber || addrApartment;
+    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || callStatusFilter || filterVoted || addrLastName || addrStreet || addrNumber || addrApartment;
     if (!hasAnyFilter) return [];
     return voters.filter((v) => {
       if (q) {
@@ -158,7 +162,9 @@ export default function SearchPage() {
         else textMatch = `${v.address.street} ${v.address.streetNumber}`.toLowerCase().includes(q);
         if (!textMatch) return false;
       }
-      if (statusId && v.statusId !== statusId) return false;
+      // Support-status filter — fall back to the default status so that
+      // filtering by "ברירת מחדל" matches voters who were never set (empty statusId).
+      if (statusId && (v.statusId ?? defaultStatusId) !== statusId) return false;
       if (groupId && !v.groupIds.includes(groupId)) return false;
       if (subGroupId && !(v.subGroupIds ?? []).includes(subGroupId)) return false;
       if (leaderId && !v.groupIds.some((gid) => leaderByGroupId[gid] === leaderId)) return false;
@@ -172,11 +178,13 @@ export default function SearchPage() {
       if (addrNumber && v.address.streetNumber !== addrNumber) return false;
       if (addrApartment && v.address.apartment !== addrApartment) return false;
       if (categoryFilter && (statusMap.get(v.statusId ?? "")?.category ?? "neutral") !== categoryFilter) return false;
+      // Last-call-result filter (replaces the old redundant "category" dropdown).
+      if (callStatusFilter && v.lastCallStatusId !== callStatusFilter) return false;
       if (filterVoted === "yes" && !v.hasVoted) return false;
       if (filterVoted === "no" && v.hasVoted) return false;
       return true;
     });
-  }, [voters, query, textMode, statusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
+  }, [voters, query, textMode, statusId, defaultStatusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, callStatusFilter, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
 
   const results = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -226,13 +234,13 @@ export default function SearchPage() {
   const addrActive = Boolean(addrLastName || addrStreet || addrNumber || addrApartment);
   const activeFilterCount =
     (statusId ? 1 : 0) + (groupId ? 1 : 0) + (leaderId ? 1 : 0) +
-    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
+    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (callStatusFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
 
   const clearAddress = () => { setAddrLastName(""); setAddrStreet(""); setAddrNumber(""); setAddrApartment(""); };
 
   const resetFilters = () => {
     setQuery(""); setStatusId(""); setGroupId(""); setLeaderId("");
-    setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setFilterVoted("");
+    setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setCallStatusFilter(""); setFilterVoted("");
     clearAddress();
     setSelected(new Set());
   };
@@ -381,13 +389,8 @@ export default function SearchPage() {
         {filtersOpen && (
           <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
-              <FilterSelect label="קטגוריה" value={categoryFilter} onChange={setCategoryFilter}
-                options={[
-                  { value: "supporter", label: "תומך" },
-                  { value: "opponent", label: "מתנגד" },
-                  { value: "undecided", label: "מתלבט" },
-                  { value: "neutral", label: "לא רלוונטי" },
-                ]} />
+              <FilterSelect label="תוצאת שיחה אחרונה" value={callStatusFilter} onChange={setCallStatusFilter}
+                options={callStatuses.map((cs) => ({ value: cs.id, label: cs.name }))} />
               <FilterSelect label="סטטוס" value={statusId} onChange={setStatusId}
                 options={statuses.map((s) => ({ value: s.id, label: s.name }))} />
               <FilterSelect label="קבוצה" value={groupId} onChange={setGroupId}
