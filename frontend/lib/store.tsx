@@ -6,11 +6,12 @@ import React, {
   useState,
   useEffect,
   useRef,
+  useCallback,
   ReactNode,
 } from "react";
 import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, AppUser, Reminder, ListManager, List } from "@/types";
 import { db, auth } from "@/lib/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 import {
   collection,
   getDocs,
@@ -54,6 +55,13 @@ async function resolveActiveTenant(user: import("firebase/auth").User): Promise<
 type StoreContextType = {
   state: AppState;
   loading: boolean;
+  // true when Firebase Auth has a signed-in user (the real "logged in" signal,
+  // independent of whether tenant data finished loading).
+  signedIn: boolean;
+  // true when the tenant data failed to load after retries while still signed
+  // in — lets the UI offer a retry instead of bouncing to /login.
+  loadError: boolean;
+  retryLoad: () => void;
   tenantName: string | null;
   tenantFrozen: boolean;
   isSuperAdmin: boolean;
@@ -162,61 +170,96 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [tenantName, setTenantName] = useState<string | null>(null);
   const [tenantFrozen, setTenantFrozen] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const fbUserRef = useRef<User | null>(null);
   // The active tenant for writes (kept in a ref so write helpers see it).
   const tenantIdRef = useRef<string | null>(ACTIVE_TENANT);
   // Stamp a new/updated document with the active tenant so it stays scoped.
   const stamp = <T extends object>(obj: T): T & { tenantId: string | null } => ({ ...obj, tenantId: tenantIdRef.current });
 
-  // Load data once Firebase Auth is ready. The security rules require an
-  // authenticated user, so we must wait for sign-in before reading — otherwise
-  // the reads are denied and the app shows empty until a manual refresh.
-  // onAuthStateChanged also fires right after login, so data appears
-  // automatically without needing a refresh.
+  // Load all tenant data for a signed-in Firebase user. Kept as a function so a
+  // failed refresh can RETRY without forcing the user to re-login. A transient
+  // network hiccup on refresh must never look like "logged out".
+  const loadForUser = useCallback(async (user: User) => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const tid = await resolveActiveTenant(user);
+      ACTIVE_TENANT = tid;
+      tenantIdRef.current = tid;
+      try {
+        const res = await user.getIdTokenResult();
+        setIsSuperAdmin(res.claims.isSuperAdmin === true);
+      } catch {}
+      if (!tid) { setState(EMPTY_STATE); setTenantName(null); return; }
+      // Load the active company's display name.
+      try {
+        const tSnap = await getDoc(doc(db, "tenants", tid));
+        setTenantName((tSnap.data()?.name as string) ?? null);
+        setTenantFrozen(tSnap.data()?.isFrozen === true);
+      } catch { setTenantName(null); setTenantFrozen(false); }
+      // Load this tenant's data — retry a few times before giving up so a single
+      // momentary failure on refresh doesn't wipe state and bounce to /login.
+      let loaded: AppState | null = null;
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try { loaded = await loadFromFirestore(tid); break; }
+        catch (e) { lastErr = e; await new Promise((r) => setTimeout(r, 600 * (attempt + 1))); }
+      }
+      if (!loaded) {
+        // Persistent failure: the user IS still authenticated. Surface a retry
+        // screen (loadError) instead of clearing state — clearing would make
+        // currentUser null and the guard would mistake it for a logout.
+        console.error("Firestore load failed (after retries)", lastErr);
+        setLoadError(true);
+        return;
+      }
+      // A super admin viewing ANOTHER company won't have their own user doc
+      // in that company's list — fetch it so their identity (currentUser)
+      // still resolves and they aren't bounced to login.
+      if (!loaded.users.some((u) => u.id === user.uid)) {
+        try {
+          const own = await getDoc(doc(db, "users", user.uid));
+          if (own.exists()) loaded.users = [...loaded.users, own.data() as AppUser];
+        } catch {}
+      }
+      setState(loaded);
+    } catch (e) {
+      console.error("Tenant resolve/load failed", e);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Re-run the load for the currently signed-in user (used by the retry button).
+  const retryLoad = useCallback(() => {
+    const user = fbUserRef.current;
+    if (user) loadForUser(user);
+  }, [loadForUser]);
+
+  // Load data once Firebase Auth is ready. onAuthStateChanged fires right after
+  // login AND on every refresh once the persisted token is restored — so data
+  // appears automatically. signedIn tracks the REAL auth state (token present),
+  // separate from whether the data finished loading.
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
+      fbUserRef.current = user;
       if (!user) {
-        // Signed out: clear data and stop loading (login screen).
+        // Genuinely signed out (logout, disabled account, expired token):
+        // clear data and stop loading → the guard sends to /login.
+        setSignedIn(false);
+        setLoadError(false);
         setState(EMPTY_STATE);
         setLoading(false);
         return;
       }
-      setLoading(true);
-      try {
-        const tid = await resolveActiveTenant(user);
-        ACTIVE_TENANT = tid;
-        tenantIdRef.current = tid;
-        try {
-          const res = await user.getIdTokenResult();
-          setIsSuperAdmin(res.claims.isSuperAdmin === true);
-        } catch {}
-        if (!tid) { setState(EMPTY_STATE); setTenantName(null); return; }
-        // Load the active company's display name.
-        try {
-          const tSnap = await getDoc(doc(db, "tenants", tid));
-          setTenantName((tSnap.data()?.name as string) ?? null);
-          setTenantFrozen(tSnap.data()?.isFrozen === true);
-        } catch { setTenantName(null); setTenantFrozen(false); }
-        // Load only this tenant's data.
-        const loaded = await loadFromFirestore(tid);
-        // A super admin viewing ANOTHER company won't have their own user doc
-        // in that company's list — fetch it so their identity (currentUser)
-        // still resolves and they aren't bounced to login.
-        if (!loaded.users.some((u) => u.id === user.uid)) {
-          try {
-            const own = await getDoc(doc(db, "users", user.uid));
-            if (own.exists()) loaded.users = [...loaded.users, own.data() as AppUser];
-          } catch {}
-        }
-        setState(loaded);
-      } catch (e) {
-        console.error("Firestore load failed", e);
-        setState(EMPTY_STATE);
-      } finally {
-        setLoading(false);
-      }
+      setSignedIn(true);
+      await loadForUser(user);
     });
     return () => unsub();
-  }, []);
+  }, [loadForUser]);
 
   // ── Voters ────────────────────────────────────────────────────────────────────
 
@@ -816,6 +859,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       value={{
         state,
         loading,
+        signedIn,
+        loadError,
+        retryLoad,
         tenantName,
         tenantFrozen,
         isSuperAdmin,

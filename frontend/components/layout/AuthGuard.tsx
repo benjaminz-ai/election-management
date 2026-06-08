@@ -15,18 +15,22 @@ const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
 
 export default function AuthGuard({ children }: { children: ReactNode }) {
   const { currentUser, logout } = useAuth();
-  const { loading, tenantFrozen, isSuperAdmin } = useStore();
+  const { loading, tenantFrozen, isSuperAdmin, signedIn, loadError, retryLoad } = useStore();
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const isPublicPage = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "?"));
 
+  // Bounce to /login ONLY when there is genuinely no Firebase session
+  // (logout, disabled account, expired/cleared token). A null currentUser while
+  // still signed in means the DATA didn't load — that's handled below with a
+  // retry, NOT a logout. This is what kept refreshes from throwing users out.
   useEffect(() => {
-    if (!loading && !currentUser && !isPublicPage) {
+    if (!loading && !signedIn && !isPublicPage) {
       router.replace("/login");
     }
-  }, [loading, currentUser, isPublicPage, router]);
+  }, [loading, signedIn, isPublicPage, router]);
 
   // Close sidebar on route change
   useEffect(() => {
@@ -62,6 +66,26 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   }
 
   if (!currentUser) {
+    // Signed in at Firebase but the tenant data failed to load (transient
+    // network issue on refresh). Offer a retry instead of bouncing to /login —
+    // the user is NOT logged out. A real logout sets signedIn=false and the
+    // effect above already redirected.
+    if (signedIn && loadError) {
+      return (
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "#f3f5f9" }}>
+          <div style={{ maxWidth: 420, background: "#fff", borderRadius: 16, padding: "32px 28px", textAlign: "center", boxShadow: "0 10px 40px rgba(3,33,71,0.12)" }}>
+            <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: "#032147" }}>טעינת הנתונים נכשלה</h1>
+            <p style={{ margin: "10px 0 20px", fontSize: 14, color: "#64748b", lineHeight: 1.7 }}>
+              אתה עדיין מחובר — רק לא הצלחנו לטעון את הנתונים כרגע (ייתכן חיבור רשת חלש). נסה שוב.
+            </p>
+            <button onClick={() => retryLoad()}
+              style={{ padding: "11px 28px", borderRadius: 10, border: "none", background: "#032147", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+              נסה שוב
+            </button>
+          </div>
+        </div>
+      );
+    }
     return null;
   }
 
