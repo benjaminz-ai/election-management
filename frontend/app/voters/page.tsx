@@ -546,6 +546,16 @@ export default function VotersPage() {
                   {groups.length === 0 && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>אין קבוצות</span>}
                 </div>
               </div>
+              <div style={{ marginBottom: 18 }}>
+                <label className="label" style={{ marginBottom: 8 }}>שיוך לרשימה</label>
+                <select className="input" value={form.listId ?? ""} onChange={e => setForm({ ...form, listId: e.target.value })}>
+                  <option value="">ללא רשימה</option>
+                  {lists.map(l => {
+                    const mgr = listManagers.find(m => m.id === l.listManagerId);
+                    return <option key={l.id} value={l.id}>{l.name}{mgr ? ` — ${mgr.firstName} ${mgr.lastName}` : ""}</option>;
+                  })}
+                </select>
+              </div>
               <div className="modal-footer">
                 <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>ביטול</button>
                 <button type="submit" className="btn-primary">{editing ? "שמור שינויים" : "הוסף בוחר"}</button>
