@@ -2,10 +2,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, PieChart, Target, Megaphone, TrendingUp, AlertTriangle, ClipboardList } from "lucide-react";
+import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, PieChart, Target, Megaphone, TrendingUp, AlertTriangle, ClipboardList, Phone, ShieldAlert, Copy } from "lucide-react";
 import { Voter, Status } from "@/types";
 
-type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | "voting" | null;
+type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | "voting" | "quality" | "lists" | null;
+type QualityKey = "noPhone" | "noAddress" | "dupPhone";
 type SortDir = "asc" | "desc";
 type VoterSortKey = "lastName" | "firstName" | "phone" | "city" | "status";
 
@@ -291,7 +292,7 @@ function VoterListTable({ voters, statuses, emptyText }: { voters: Voter[]; stat
 export default function ReportsPage() {
   const router = useRouter();
   const { state } = useStore();
-  const { voters, groups, groupLeaders, divisionHeads, statuses } = state;
+  const { voters, groups, groupLeaders, divisionHeads, statuses, lists, listManagers } = state;
 
   const goToSearch = (params: Record<string, string>) => {
     const qs = new URLSearchParams(params).toString();
@@ -305,7 +306,9 @@ export default function ReportsPage() {
   const [activeReport, setActiveReport] = useState<ReportKey>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [expandedLeaders, setExpandedLeaders] = useState<Set<string>>(new Set());
+  const [expandedLists, setExpandedLists] = useState<Set<string>>(new Set());
   const [votingTab, setVotingTab] = useState<"voted" | "not_voted">("voted");
+  const [qualityTab, setQualityTab] = useState<QualityKey>("noPhone");
 
   // Auto-open from query param
   useEffect(() => {
@@ -413,6 +416,45 @@ export default function ReportsPage() {
     city, total: cv.length, voted: cv.filter(v => v.hasVoted).length
   })).filter(r => r.total > 0).sort((a, b) => (b.voted / b.total) - (a.voted / a.total));
 
+  // ── Data quality ─────────────────────────────────────────────
+  const trimmed = (s?: string) => (s ?? "").trim();
+  const digits = (s?: string) => (s ?? "").replace(/\D/g, "");
+  const noPhone = voters.filter(v => !trimmed(v.phone));
+  const noAddress = voters.filter(v => !trimmed(v.address?.city));
+  const dupsBy = (keyFn: (v: Voter) => string): Voter[] => {
+    const m = new Map<string, Voter[]>();
+    for (const v of voters) {
+      const k = keyFn(v);
+      if (!k) continue;
+      const arr = m.get(k);
+      if (arr) arr.push(v); else m.set(k, [v]);
+    }
+    // Keep only groups that repeat; flatten and keep duplicates adjacent by key.
+    return Array.from(m.values()).filter(a => a.length > 1).sort((a, b) => b.length - a.length).flat();
+  };
+  const dupPhone = dupsBy(v => digits(v.phone));
+  const qualitySections: { key: QualityKey; label: string; color: string; hint: string; voters: Voter[] }[] = [
+    { key: "noPhone", label: "חסרי טלפון", color: "#dc2626", hint: "אי אפשר לחייג אליהם — להשלים מספר", voters: noPhone },
+    { key: "noAddress", label: "חסרי כתובת", color: "#d97706", hint: "ללא עיר — לא יופיעו בהצלבת משפחות/מפה", voters: noAddress },
+    { key: "dupPhone", label: "כפילות טלפון", color: "#7c3aed", hint: "אותו מספר ליותר מאדם אחד — לבדוק (משפחה? כפילות?)", voters: dupPhone },
+  ];
+  const activeQuality = qualitySections.find(s => s.key === qualityTab) ?? qualitySections[0];
+  const totalIssues = noPhone.length + noAddress.length + dupPhone.length;
+  const openQuality = (tab: QualityKey) => { setQualityTab(tab); handleToggle("quality"); };
+
+  // ── Lists report (by list → sub-lists) ───────────────────────
+  const listReport = lists.filter(l => !l.parentListId).map(l => {
+    const mgr = listManagers.find(m => m.id === l.listManagerId);
+    const subs = lists.filter(s => s.parentListId === l.id);
+    const subIds = new Set(subs.map(s => s.id));
+    const listVoters = voters.filter(v => v.listId === l.id || (v.listId ? subIds.has(v.listId) : false));
+    const stats = buildStats(listVoters);
+    const subStats = subs.map(s => ({ list: s, ...buildStats(voters.filter(v => v.listId === s.id)) }))
+      .sort((a, b) => b.total - a.total);
+    return { list: l, mgr, stats, subStats };
+  }).sort((a, b) => b.stats.total - a.stats.total);
+  const noListReportCount = voters.filter(v => !v.listId).length;
+
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -482,12 +524,37 @@ export default function ReportsPage() {
               <InsightTile icon={<AlertTriangle size={16} />} color="#d97706" value={familyReport.filter(f => f.mixed).length}
                 label="בתים מפוצלים" hint="מחלוקת בתוך המשפחה"
                 onClick={() => handleToggle("families")} />
+              <InsightTile icon={<Phone size={16} />} color="#dc2626" value={noPhone.length}
+                label="חסרי טלפון" hint="אי אפשר לחייג — להשלים מספר"
+                onClick={() => openQuality("noPhone")} />
             </div>
           </div>
         </div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+        {/* ── Data quality ───────────────────────────────────────────────── */}
+        <ReportCard title="איכות נתונים" description={totalIssues === 0 ? "כל הרשומות תקינות 🎉" : `${totalIssues.toLocaleString()} רשומות לתיקון · חסרי טלפון/כתובת וכפילויות`} icon={<ShieldAlert size={18} />} reportKey="quality" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+          <div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+              {qualitySections.map(s => {
+                const active = qualityTab === s.key;
+                return (
+                  <button key={s.key} onClick={() => setQualityTab(s.key)}
+                    style={{ padding: "7px 14px", borderRadius: 20, fontSize: 13, fontWeight: 600, border: "1.5px solid", borderColor: active ? s.color : "#e2e8f0", cursor: "pointer", background: active ? s.color : "#fff", color: active ? "#fff" : "#475569", display: "flex", alignItems: "center", gap: 7 }}>
+                    {s.key === "dupPhone" ? <Copy size={13} /> : s.key === "noPhone" ? <Phone size={13} /> : <MapPin size={13} />}
+                    {s.label}
+                    <span style={{ background: active ? "rgba(255,255,255,0.25)" : s.color + "22", color: active ? "#fff" : s.color, borderRadius: 10, padding: "1px 8px", fontSize: 12, fontWeight: 700 }}>{s.voters.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 14px 0" }}>{activeQuality.hint}</div>
+            <VoterListTable voters={activeQuality.voters} statuses={statuses}
+              emptyText={activeQuality.key === "dupPhone" ? "אין כפילויות טלפון 🎉" : "אין רשומות חסרות בקטגוריה זו 🎉"} />
+          </div>
+        </ReportCard>
 
         {/* ── Voting rates ───────────────────────────────────────────────── */}
         <ReportCard title="שיעורי הצבעה" description={`${totalVoted} הצביעו מתוך ${allStats.total} · רשימה מלאה עם מיון ועימוד`} icon={<Vote size={18} />} reportKey="voting" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
@@ -620,6 +687,50 @@ export default function ReportsPage() {
               </div>
             ))}
           </div>
+        </ReportCard>
+
+        {/* ── Lists (מנהלי רשימות) ────────────────────────────────────────── */}
+        <ReportCard title="ניתוח רשימות" description={`פילוח לפי רשימה ותת-רשימה · ${noListReportCount.toLocaleString()} בוחרים ללא רשימה`} icon={<ClipboardList size={18} />} reportKey="lists" activeReport={activeReport} onToggle={handleToggle} loading={reportLoading}>
+          {listReport.length === 0 ? <p style={{ color: "#94a3b8" }}>אין רשימות עדיין</p> : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {listReport.map(({ list, mgr, stats, subStats }) => {
+                const expanded = expandedLists.has(list.id);
+                return (
+                  <div key={list.id} style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
+                    <div style={{ padding: "12px 16px", background: "#fffbeb", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                      <div style={{ cursor: subStats.length > 0 ? "pointer" : "default" }}
+                        onClick={() => subStats.length > 0 && setExpandedLists(prev => { const s = new Set(prev); s.has(list.id) ? s.delete(list.id) : s.add(list.id); return s; })}>
+                        <span style={{ fontWeight: 700 }}>{list.name}</span>
+                        {mgr && <span style={{ fontSize: 12, color: "#92610a", marginRight: 8 }}>מנהל רשימה: {mgr.firstName} {mgr.lastName}</span>}
+                        <span style={{ fontSize: 12, color: "#64748b", marginRight: 8 }}>
+                          {subStats.length > 0 && `${subStats.length} תתי-רשימות · `}{stats.total} בוחרים · <span style={{ color: "#22c55e" }}>{stats.supporters} תומכים</span> <span style={{ color: "#ef4444" }}>{stats.opponents} מתנגדים</span>
+                          {stats.voted > 0 && <span style={{ color: "#16a34a" }}> · {stats.voted} הצביעו</span>}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span onClick={() => goToSearch({ list: list.id })} title="צפה ברשימת הבוחרים"
+                          style={{ fontSize: 12, color: "var(--blue-primary)", fontWeight: 600, cursor: "pointer" }}>צפה ←</span>
+                        {subStats.length > 0 && (expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />)}
+                      </div>
+                    </div>
+                    <div style={{ padding: "8px 16px 12px" }}><StatusBar breakdown={stats.breakdown} total={stats.total} /></div>
+                    {expanded && subStats.map(({ list: sub, breakdown, total, supporters, opponents, voted }) => (
+                      <div key={sub.id} style={{ padding: "8px 16px 12px", borderTop: "1px solid #f1f5f9", paddingRight: 28 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: "#475569" }}>↳ {sub.name}</span>
+                        <span style={{ fontSize: 12, color: "#94a3b8", marginRight: 8 }}>
+                          {total} · <span style={{ color: "#22c55e" }}>{supporters}✓</span> <span style={{ color: "#ef4444" }}>{opponents}✗</span>
+                          {voted > 0 && <span style={{ color: "#16a34a" }}> · {voted} הצביעו</span>}
+                        </span>
+                        <span onClick={() => goToSearch({ list: sub.id })} title="צפה בתת-הרשימה"
+                          style={{ fontSize: 11, color: "var(--blue-primary)", fontWeight: 600, marginRight: 6, cursor: "pointer" }}>צפה ←</span>
+                        <StatusBar breakdown={breakdown} total={total} />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </ReportCard>
 
         {/* ── Divisions ──────────────────────────────────────────────────── */}
