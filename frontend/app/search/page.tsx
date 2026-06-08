@@ -121,8 +121,12 @@ export default function SearchPage() {
       const apartment = p.get("apartment");
       const cityParam = p.get("city");
       const lastName = p.get("lastName");
+      const groupParam = p.get("group");   // reports drill-down: "__none__" = ללא קבוצה, or a group id
+      const listParam = p.get("list");     // reports drill-down: "__nolist__" = ללא רשימה, or a list id
       if (cat) { setCategoryFilter(cat); setFiltersOpen(true); }
       if (voted === "yes" || voted === "no") { setFilterVoted(voted); setFiltersOpen(true); }
+      if (groupParam) { setGroupId(groupParam); setFiltersOpen(true); }
+      if (listParam) { setListFilter(listParam); setFiltersOpen(true); }
       if (lastName) setAddrLastName(lastName);
       if (street) setAddrStreet(street);
       if (number) setAddrNumber(number);

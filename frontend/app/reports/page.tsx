@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useStore } from "@/lib/store";
-import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, PieChart, Target, Megaphone, TrendingUp, AlertTriangle } from "lucide-react";
+import { BarChart3, Users, ChevronDown, ChevronUp, MapPin, GitMerge, Loader2, Tag, Vote, ChevronRight, ChevronLeft, ArrowUpDown, ArrowUp, ArrowDown, PieChart, Target, Megaphone, TrendingUp, AlertTriangle, ClipboardList } from "lucide-react";
 import { Voter, Status } from "@/types";
 
 type ReportKey = "leaders" | "groups" | "divisions" | "families" | "geo" | "voting" | null;
@@ -298,6 +298,10 @@ export default function ReportsPage() {
     router.push(`/search?${qs}`);
   };
 
+  // Unassigned voters — surfaced so they don't get lost. Click drills into search.
+  const noGroupCount = useMemo(() => voters.filter((v) => v.groupIds.length === 0).length, [voters]);
+  const noListCount = useMemo(() => voters.filter((v) => !v.listId).length, [voters]);
+
   const [activeReport, setActiveReport] = useState<ReportKey>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [expandedLeaders, setExpandedLeaders] = useState<Set<string>>(new Set());
@@ -427,6 +431,10 @@ export default function ReportsPage() {
           onClick={() => goToSearch({ category: "undecided" })} />
         <SummaryCard label="לא רלוונטי" value={allStats.neutral} color="#94a3b8" icon={<Tag size={18} />}
           onClick={() => goToSearch({ category: "neutral" })} />
+        <SummaryCard label="ללא קבוצה" value={noGroupCount} color="#64748b" icon={<Users size={18} />}
+          onClick={() => goToSearch({ group: "__none__" })} />
+        <SummaryCard label="ללא רשימה" value={noListCount} color="#b45309" icon={<ClipboardList size={18} />}
+          onClick={() => goToSearch({ list: "__nolist__" })} />
         <div className="card" onClick={() => goToSearch({ voted: "yes" })}
           style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 18px", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s" }}
           onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.10)"; e.currentTarget.style.transform = "translateY(-1px)"; }}

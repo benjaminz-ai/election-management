@@ -7,7 +7,7 @@ import { ConversationLog, Voter, Group } from "@/types";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import {
-  Search, X, Phone, MapPin, Users, Clock, Loader2, CheckCircle2, Contact, Filter,
+  Search, X, Phone, MapPin, Users, Clock, Loader2, CheckCircle2, Contact, Filter, ClipboardList,
 } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 
@@ -32,10 +32,11 @@ function formatDate(iso: string) {
 export default function FieldPage() {
   const { state } = useStore();
   const { currentUser } = useAuth();
-  const { voters, groups, groupLeaders, divisionHeads, statuses, callStatuses, users } = state;
+  const { voters, groups, groupLeaders, divisionHeads, statuses, callStatuses, users, listManagers, lists } = state;
 
   const [search, setSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<string>("");
+  const [listFilter, setListFilter] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [selected, setSelected] = useState<Voter | null>(null);
   const [logs, setLogs] = useState<ConversationLog[]>([]);
@@ -74,10 +75,19 @@ export default function FieldPage() {
 
   const myGroupIdSet = useMemo(() => new Set(myGroups.map((g) => g.id)), [myGroups]);
 
-  // Voters assigned to this user (in any of their groups).
+  // Lists this user manages (by email → list manager). A list manager sees the
+  // voters from their own lists, across whatever groups those voters belong to.
+  const myLists = useMemo(() => {
+    if (!email) return [];
+    const mgrIds = new Set(listManagers.filter((m) => (m.email || "").trim().toLowerCase() === email).map((m) => m.id));
+    return lists.filter((l) => mgrIds.has(l.listManagerId));
+  }, [email, listManagers, lists]);
+  const myListIdSet = useMemo(() => new Set(myLists.map((l) => l.id)), [myLists]);
+
+  // Voters assigned to this user — in any of their groups OR from any of their lists.
   const myVoters = useMemo(
-    () => voters.filter((v) => v.groupIds.some((gid) => myGroupIdSet.has(gid))),
-    [voters, myGroupIdSet]
+    () => voters.filter((v) => v.groupIds.some((gid) => myGroupIdSet.has(gid)) || (v.listId ? myListIdSet.has(v.listId) : false)),
+    [voters, myGroupIdSet, myListIdSet]
   );
 
   const defaultStatusId = useMemo(() => statuses.find((s) => s.isDefault)?.id, [statuses]);
@@ -104,6 +114,7 @@ export default function FieldPage() {
   const filtered = useMemo(() => {
     let list = myVoters;
     if (groupFilter) list = list.filter((v) => v.groupIds.includes(groupFilter));
+    if (listFilter) list = list.filter((v) => v.listId === listFilter);
     if (categoryFilter) {
       list = list.filter((v) => {
         const cat = getStatus(v)?.category;
@@ -278,6 +289,28 @@ export default function FieldPage() {
         </div>
       )}
 
+      {/* List filter chips — for list managers (by their lists) */}
+      {myLists.length > 0 && (
+        <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+          <ClipboardList size={13} color="#f59e0b" />
+          {myLists.length > 1 && (
+            <button onClick={() => setListFilter("")}
+              style={{ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: listFilter === "" ? "#b45309" : "#fef3c7", color: listFilter === "" ? "#fff" : "#92610a" }}>
+              כל הרשימות
+            </button>
+          )}
+          {myLists.map((l) => {
+            const active = listFilter === l.id;
+            return (
+              <button key={l.id} onClick={() => setListFilter(active ? "" : l.id)}
+                style={{ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: active ? "#b45309" : "#fef3c7", color: active ? "#fff" : "#92610a" }}>
+                {l.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* List */}
       {myVoters.length === 0 ? (
         <div style={{ padding: "48px 20px", textAlign: "center", background: "#fff", borderRadius: 14, border: "1px solid #eef1f5" }}>
@@ -293,6 +326,7 @@ export default function FieldPage() {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {visibleVoters.map((v) => {
             const st = getStatus(v);
+            const vList = v.listId ? lists.find((l) => l.id === v.listId) : undefined;
             return (
               <div key={v.id} onClick={() => setSelected(v)}
                 style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "11px 13px", display: "flex", alignItems: "center", gap: 11, cursor: "pointer" }}>
@@ -307,6 +341,11 @@ export default function FieldPage() {
                   <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {v.groupIds.map(groupName).filter(Boolean).join(" · ") || buildAddress(v)}
                   </div>
+                  {vList && (
+                    <div style={{ fontSize: 10.5, color: "#b45309", fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
+                      <ClipboardList size={10} /> מקור: {vList.name}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, flexShrink: 0 }}>
                   {st && (
