@@ -6,6 +6,7 @@ import { useStore, getActiveTenant } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
 import { auth } from "@/lib/firebase";
 import { AppUser, UserRole } from "@/types";
+import { generateId } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import { Plus, Pencil, Snowflake, PlayCircle, Users, Phone, Mail, Eye, EyeOff, Search, X, ShieldCheck, Briefcase, Headphones, UserCheck, Shield } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
@@ -46,9 +47,9 @@ const emptyUser = (): Omit<AppUser, "id" | "createdAt" | "isFrozen"> => ({
 });
 
 export default function UsersPage() {
-  const { state, freezeUser, refreshUsers } = useStore();
+  const { state, freezeUser, refreshUsers, addGroupLeader, addDivisionHead } = useStore();
   const { currentUser } = useAuth();
-  const { users } = state;
+  const { users, groupLeaders, divisionHeads } = state;
   const isAdmin = currentUser?.role === "admin";
   const router = useRouter();
 
@@ -93,6 +94,23 @@ export default function UsersPage() {
     setShowForm(true);
   };
 
+  // When a user is a group leader / division head, make sure a matching
+  // assignment entity exists (linked by email) so you don't have to create it
+  // twice. Existing entities (matched by email) are left untouched — preserved.
+  const ensureLeaderEntity = (role: UserRole, email: string, firstName: string, lastName: string, phone: string) => {
+    const key = (email || "").trim().toLowerCase();
+    if (!key) return;
+    if (role === "group_leader") {
+      if (!groupLeaders.some((gl) => (gl.email || "").trim().toLowerCase() === key)) {
+        addGroupLeader({ id: generateId(), firstName, lastName, uniqueId: "", phone, email, divisionHeadId: "", groupIds: [] });
+      }
+    } else if (role === "division_head") {
+      if (!divisionHeads.some((dh) => (dh.email || "").trim().toLowerCase() === key)) {
+        addDivisionHead({ id: generateId(), firstName, lastName, uniqueId: "", phone, email, groupLeaderIds: [] });
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
@@ -135,6 +153,9 @@ export default function UsersPage() {
           return;
         }
         await refreshUsers();
+        // Role may have changed to group_leader/division_head — ensure the
+        // matching assignment entity exists (uses the user's real email).
+        ensureLeaderEntity(form.role, editing.email, form.firstName, form.lastName, form.phone);
         setSubmitting(false);
         setShowForm(false);
         return;
@@ -175,6 +196,9 @@ export default function UsersPage() {
 
       // Reload the roster so the new uid-keyed profile shows up.
       await refreshUsers();
+      // For a group-leader / division-head user, auto-create the matching
+      // assignment entity (linked by email) so it appears in the leaders screen.
+      ensureLeaderEntity(form.role, form.email, form.firstName, form.lastName, form.phone);
       setSubmitting(false);
       setShowForm(false);
     } catch {
