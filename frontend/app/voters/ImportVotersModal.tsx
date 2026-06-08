@@ -287,26 +287,30 @@ export default function ImportVotersModal({
     }
     const groupIdsByName = new Map(groups.map((g) => [g.name, g.id]));
     const statusIdByName = new Map(statuses.map((s) => [s.name, s.id]));
-    const newVoters: Voter[] = result.toImport.map((r) => ({
-      id: generateId(),
-      firstName: r.firstName,
-      lastName: r.lastName,
-      uniqueId: r.uniqueId,
-      phone: r.phone,
-      address: {
-        street: r.street,
-        streetNumber: r.streetNumber,
-        building: r.building,
-        apartment: r.apartment,
-        city: r.city,
-      },
-      groupIds: r.groupNames
-        .map((name) => groupIdsByName.get(name))
-        .filter((id): id is string => !!id),
-      statusId: r.statusName ? statusIdByName.get(r.statusName) : undefined,
-      hasVoted: false,
-      ...(listId ? { listId } : {}),
-    }));
+    const newVoters: Voter[] = result.toImport.map((r) => {
+      // Firestore rejects `undefined` field values — only include statusId when it resolves.
+      const sid = r.statusName ? statusIdByName.get(r.statusName) : undefined;
+      return {
+        id: generateId(),
+        firstName: r.firstName,
+        lastName: r.lastName,
+        uniqueId: r.uniqueId,
+        phone: r.phone,
+        address: {
+          street: r.street,
+          streetNumber: r.streetNumber,
+          building: r.building,
+          apartment: r.apartment,
+          city: r.city,
+        },
+        groupIds: r.groupNames
+          .map((name) => groupIdsByName.get(name))
+          .filter((id): id is string => !!id),
+        hasVoted: false,
+        ...(sid ? { statusId: sid } : {}),
+        ...(listId ? { listId } : {}),
+      };
+    });
     onImport(newVoters);
     setImportedCount(newVoters.length);
     setStep("done");
