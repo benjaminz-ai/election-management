@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { formatAddress } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { Search, MapPin, UserCheck, X, Vote, Filter, CheckSquare, Square, RotateCcw, Tag, Users2, ChevronDown, ChevronUp, Settings2, Eye, GripVertical, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Search, MapPin, UserCheck, X, Vote, Filter, CheckSquare, Square, RotateCcw, Tag, Users2, ChevronDown, ChevronUp, Settings2, Eye, GripVertical, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
@@ -358,6 +358,56 @@ export default function SearchPage() {
     }
   };
 
+  // Plain-text value of a cell, for export — mirrors what the table shows.
+  const cellText = (v: typeof voters[0], col: ColId): string => {
+    switch (col) {
+      case "name": return `${v.firstName} ${v.lastName} (${v.uniqueId})`;
+      case "address": return formatAddress(v.address);
+      case "status": { const st = statusMap.get(v.statusId ?? ""); return st ? st.name : "ללא סטטוס"; }
+      case "voted": return v.hasVoted ? "הצביע" : "לא הצביע";
+      case "leader": { const l = getVoterLeader(v); return l ? `${l.firstName} ${l.lastName}` : "לא משויך"; }
+      case "groups": { const g = getVoterGroups(v); return g.length ? g.map((x) => x.name).join(", ") : "ללא קבוצה"; }
+      default: return "";
+    }
+  };
+
+  const exportBaseName = () => `בוחרים_${new Date().toLocaleDateString("he-IL").replace(/\//g, "-")}`;
+
+  // Export the current (filtered) results + displayed columns to a CSV that
+  // Excel opens with Hebrew intact (UTF-8 BOM).
+  const exportExcel = () => {
+    if (results.length === 0) return;
+    const esc = (s: string) => /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    const rows = [visibleCols.map((c) => COL_LABELS[c]), ...results.map((v) => visibleCols.map((c) => cellText(v, c)))];
+    const csv = "﻿" + rows.map((r) => r.map(esc).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `${exportBaseName()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export to PDF via a print window — the browser renders Hebrew/RTL natively.
+  const exportPDF = () => {
+    if (results.length === 0) return;
+    const e = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c] as string));
+    const head = visibleCols.map((c) => `<th>${e(COL_LABELS[c])}</th>`).join("");
+    const body = results.map((v) => `<tr>${visibleCols.map((c) => `<td>${e(cellText(v, c))}</td>`).join("")}</tr>`).join("");
+    const now = new Date();
+    const html = `<!doctype html><html dir="rtl" lang="he"><head><meta charset="utf-8"><title>${e(exportBaseName())}</title>`
+      + `<style>body{font-family:Arial,sans-serif;direction:rtl;margin:24px;color:#0f172a}`
+      + `h1{font-size:18px;margin:0 0 4px}.sub{color:#64748b;font-size:12px;margin:0 0 16px}`
+      + `table{width:100%;border-collapse:collapse;font-size:12px}`
+      + `th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:right}`
+      + `thead th{background:#f1f5f9}tr:nth-child(even) td{background:#f8fafc}`
+      + `@media print{@page{size:landscape;margin:12mm}}</style></head><body>`
+      + `<h1>רשימת בוחרים</h1><p class="sub">${results.length} רשומות · ${now.toLocaleDateString("he-IL")} ${now.toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" })}</p>`
+      + `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`
+      + `<script>window.onload=function(){window.print()}</script></body></html>`;
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(html); w.document.close();
+  };
+
   const SortIcon = ({ col }: { col: ColId }) => {
     const sk = COL_SORT[col];
     if (!sk) return null;
@@ -531,11 +581,23 @@ export default function SearchPage() {
         </div>
       )}
 
-      {/* Drag hint */}
+      {/* Toolbar: drag hint + export */}
       {results.length > 0 && (
-        <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
-          <GripVertical size={12} />
-          <span>גרור כותרת עמודה לשינוי סדר · לחץ על כותרת למיון</span>
+        <div style={{ marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)" }}>
+            <GripVertical size={12} />
+            <span>גרור כותרת עמודה לשינוי סדר · לחץ על כותרת למיון</span>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={exportExcel} title="ייצוא תוצאות הסינון ל-Excel"
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 8, border: "1px solid #16a34a55", background: "#16a34a14", color: "#16a34a", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+              <Download size={13} /> ייצוא Excel
+            </button>
+            <button onClick={exportPDF} title="ייצוא תוצאות הסינון ל-PDF"
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 8, border: "1px solid #dc262655", background: "#dc262614", color: "#dc2626", fontSize: 12.5, fontWeight: 700, cursor: "pointer" }}>
+              <FileText size={13} /> ייצוא PDF
+            </button>
+          </div>
         </div>
       )}
 
