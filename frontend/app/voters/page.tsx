@@ -12,13 +12,13 @@ import PaginationFooter from "@/components/ui/PaginationFooter";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 
 // ── Column definitions ────────────────────────────────────────────────────────
-type ColId = "name" | "phone" | "address" | "status" | "voted" | "groups";
+type ColId = "name" | "phone" | "address" | "status" | "voted" | "groups" | "list";
 type SortKey = "lastName" | "firstName" | "phone" | "city" | "status" | "voted";
 type SortDir = "asc" | "desc";
 
 const COL_LABELS: Record<ColId, string> = {
   name: "בוחר", phone: "טלפון", address: "כתובת",
-  status: "סטטוס", voted: "הצביע", groups: "קבוצות",
+  status: "סטטוס", voted: "הצביע", groups: "קבוצות", list: "רשימה",
 };
 
 // Which sort key each column maps to (null = not sortable)
@@ -26,7 +26,7 @@ const COL_SORT: Partial<Record<ColId, SortKey>> = {
   name: "lastName", phone: "phone", address: "city", status: "status", voted: "voted",
 };
 
-const DRAGGABLE_COLS: ColId[] = ["name", "phone", "address", "status", "voted", "groups"];
+const DRAGGABLE_COLS: ColId[] = ["name", "phone", "address", "status", "voted", "groups", "list"];
 
 function loadColOrder(): ColId[] {
   try {
@@ -242,6 +242,13 @@ export default function VotersPage() {
                     ))}
             {voterGroups.length > 2 && <span className="badge badge-gray">+{voterGroups.length - 2}</span>}
           </div>;
+      case "list": {
+        const l = v.listId ? lists.find(x => x.id === v.listId) : undefined;
+        const mgr = l ? listManagers.find(m => m.id === l.listManagerId) : undefined;
+        return l
+          ? <span className="badge badge-orange" title={mgr ? `מנהל: ${mgr.firstName} ${mgr.lastName}` : undefined}>{l.name}</span>
+          : <span className="badge badge-gray">ללא רשימה</span>;
+      }
     }
   };
 
