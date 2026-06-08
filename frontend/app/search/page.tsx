@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { formatAddress } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
-import { Search, MapPin, UserCheck, X, Vote, Filter, CheckSquare, Square, RotateCcw, Tag, Users2, ChevronDown, ChevronUp, Settings2, Eye, GripVertical, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText } from "lucide-react";
+import { Search, MapPin, UserCheck, X, Vote, Filter, CheckSquare, Square, RotateCcw, Tag, Users2, ChevronDown, ChevronUp, Settings2, Eye, GripVertical, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, ClipboardList } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
@@ -16,6 +16,8 @@ type VotedFilter = "" | "yes" | "no";
 
 // Sentinel value for the "ללא קבוצה" (no group) option in the group filter.
 const NO_GROUP = "__none__";
+// Sentinel value for the "ללא רשימה" (no list) option in the list filter.
+const NO_LIST = "__nolist__";
 
 const TEXT_MODES: { key: TextMode; label: string; placeholder: string }[] = [
   { key: "lastName",        label: "שם משפחה",   placeholder: "הכנס שם משפחה..." },
@@ -24,18 +26,18 @@ const TEXT_MODES: { key: TextMode; label: string; placeholder: string }[] = [
 ];
 
 // ── Column definitions ──────────────────────────────────────
-type ColId = "name" | "address" | "status" | "voted" | "leader" | "groups";
+type ColId = "name" | "address" | "status" | "voted" | "leader" | "groups" | "list";
 type SortKey = "lastName" | "city" | "status" | "voted" | "leader";
 type SortDir = "asc" | "desc";
 
 const COL_LABELS: Record<ColId, string> = {
   name: "שם", address: "כתובת", status: "סטטוס",
-  voted: "הצביע", leader: "ראש קבוצה", groups: "קבוצות",
+  voted: "הצביע", leader: "ראש קבוצה", groups: "קבוצות", list: "רשימה",
 };
 const COL_SORT: Partial<Record<ColId, SortKey>> = {
   name: "lastName", address: "city", status: "status", voted: "voted", leader: "leader",
 };
-const DRAGGABLE_COLS: ColId[] = ["name", "address", "status", "voted", "leader", "groups"];
+const DRAGGABLE_COLS: ColId[] = ["name", "address", "status", "voted", "leader", "groups", "list"];
 
 function loadColOrder(): ColId[] {
   try {
@@ -60,7 +62,8 @@ function loadColVisible(): Record<ColId, boolean> {
 export default function SearchPage() {
   const { state, bulkUpdateVoters } = useStore();
   const { currentUser } = useAuth();
-  const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses, callStatuses } = state;
+  const { voters, groups, subGroups, groupLeaders, divisionHeads, statuses, callStatuses, listManagers, lists } = state;
+  const listById = useMemo(() => new Map(lists.map((l) => [l.id, l])), [lists]);
 
   // Bulk-action safety cap: limited roles can change at most BULK_LIMIT records per action
   const bulkLimit = currentUser && (currentUser.role === "telemarketing" || currentUser.role === "field") ? 10 : Infinity;
@@ -96,6 +99,8 @@ export default function SearchPage() {
   const [categoryFilter, setCategoryFilter] = useState(""); // kept for reports drill-down (?category=) — no visible dropdown
   const [callStatusFilter, setCallStatusFilter] = useState(""); // "תוצאת שיחה אחרונה" — filters by lastCallStatusId
   const [importBatchFilter, setImportBatchFilter] = useState(""); // "מנת ייבוא" — filters by importedAt
+  const [listFilter, setListFilter] = useState("");               // "רשימה" — by listId (or NO_LIST)
+  const [listManagerFilter, setListManagerFilter] = useState(""); // "מנהל רשימה" — by list's listManagerId
   const [filterVoted, setFilterVoted] = useState<VotedFilter>("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -170,7 +175,7 @@ export default function SearchPage() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || callStatusFilter || importBatchFilter || filterVoted || addrLastName || addrStreet || addrNumber || addrApartment;
+    const hasAnyFilter = q || statusId || groupId || leaderId || divisionId || subGroupId || city || categoryFilter || callStatusFilter || importBatchFilter || listFilter || listManagerFilter || filterVoted || addrLastName || addrStreet || addrNumber || addrApartment;
     if (!hasAnyFilter) return [];
     return voters.filter((v) => {
       if (q) {
@@ -203,11 +208,19 @@ export default function SearchPage() {
       if (callStatusFilter && (v.lastCallStatusId || defaultCallStatusId) !== callStatusFilter) return false;
       // Import-batch filter (מנת ייבוא) — all records of one import share importedAt.
       if (importBatchFilter && v.importedAt !== importBatchFilter) return false;
+      // List filter (רשימה) — by listId, or "ללא רשימה".
+      if (listFilter === NO_LIST) { if (v.listId) return false; }
+      else if (listFilter && v.listId !== listFilter) return false;
+      // List-manager filter (מנהל רשימה) — the voter's list must belong to them.
+      if (listManagerFilter) {
+        const l = v.listId ? listById.get(v.listId) : undefined;
+        if (!l || l.listManagerId !== listManagerFilter) return false;
+      }
       if (filterVoted === "yes" && !v.hasVoted) return false;
       if (filterVoted === "no" && v.hasVoted) return false;
       return true;
     });
-  }, [voters, query, textMode, statusId, defaultStatusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, callStatusFilter, defaultCallStatusId, importBatchFilter, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
+  }, [voters, query, textMode, statusId, defaultStatusId, groupId, leaderId, divisionId, subGroupId, city, categoryFilter, callStatusFilter, defaultCallStatusId, importBatchFilter, listFilter, listManagerFilter, listById, filterVoted, addrLastName, addrStreet, addrNumber, addrApartment, leaderByGroupId, divisionByLeaderId, statusMap]);
 
   const results = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -257,13 +270,13 @@ export default function SearchPage() {
   const addrActive = Boolean(addrLastName || addrStreet || addrNumber || addrApartment);
   const activeFilterCount =
     (statusId ? 1 : 0) + (groupId ? 1 : 0) + (leaderId ? 1 : 0) +
-    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (callStatusFilter ? 1 : 0) + (importBatchFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
+    (divisionId ? 1 : 0) + (subGroupId ? 1 : 0) + (city ? 1 : 0) + (categoryFilter ? 1 : 0) + (callStatusFilter ? 1 : 0) + (importBatchFilter ? 1 : 0) + (listFilter ? 1 : 0) + (listManagerFilter ? 1 : 0) + (filterVoted ? 1 : 0) + (addrActive ? 1 : 0);
 
   const clearAddress = () => { setAddrLastName(""); setAddrStreet(""); setAddrNumber(""); setAddrApartment(""); };
 
   const resetFilters = () => {
     setQuery(""); setStatusId(""); setGroupId(""); setLeaderId("");
-    setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setCallStatusFilter(""); setImportBatchFilter(""); setFilterVoted("");
+    setDivisionId(""); setSubGroupId(""); setCity(""); setCategoryFilter(""); setCallStatusFilter(""); setImportBatchFilter(""); setListFilter(""); setListManagerFilter(""); setFilterVoted("");
     clearAddress();
     setSelected(new Set());
   };
@@ -355,6 +368,13 @@ export default function SearchPage() {
         : <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {voterGroups.map((g) => <span key={g.id} className="badge badge-blue" style={{ fontSize: 11 }}>{g.name}</span>)}
           </div>;
+      case "list": {
+        const l = v.listId ? listById.get(v.listId) : undefined;
+        const mgr = l ? listManagers.find((m) => m.id === l.listManagerId) : undefined;
+        return l
+          ? <span className="badge badge-orange" style={{ fontSize: 11 }} title={mgr ? `מנהל: ${mgr.firstName} ${mgr.lastName}` : undefined}>{l.name}</span>
+          : <span className="badge badge-gray">ללא רשימה</span>;
+      }
     }
   };
 
@@ -367,6 +387,7 @@ export default function SearchPage() {
       case "voted": return v.hasVoted ? "הצביע" : "לא הצביע";
       case "leader": { const l = getVoterLeader(v); return l ? `${l.firstName} ${l.lastName}` : "לא משויך"; }
       case "groups": { const g = getVoterGroups(v); return g.length ? g.map((x) => x.name).join(", ") : "ללא קבוצה"; }
+      case "list": { const l = v.listId ? listById.get(v.listId) : undefined; return l ? l.name : "ללא רשימה"; }
       default: return "";
     }
   };
@@ -470,6 +491,10 @@ export default function SearchPage() {
                 options={[{ value: NO_GROUP, label: "ללא קבוצה" }, ...groups.map((g) => ({ value: g.id, label: g.name }))]} />
               <FilterSelect label="מנת ייבוא" value={importBatchFilter} onChange={setImportBatchFilter}
                 options={importBatches} />
+              <FilterSelect label="מנהל רשימה" value={listManagerFilter} onChange={setListManagerFilter}
+                options={listManagers.map((m) => ({ value: m.id, label: `${m.firstName} ${m.lastName}` }))} />
+              <FilterSelect label="רשימה" value={listFilter} onChange={setListFilter}
+                options={[{ value: NO_LIST, label: "ללא רשימה" }, ...lists.map((l) => ({ value: l.id, label: l.name }))]} />
               <FilterSelect label="תת-קבוצה" value={subGroupId} onChange={setSubGroupId}
                 options={subGroups.map((sg) => ({ value: sg.id, label: sg.name }))} />
               <FilterSelect label="ראש קבוצה" value={leaderId} onChange={setLeaderId}
@@ -661,6 +686,7 @@ export default function SearchPage() {
           statuses={statuses}
           groupLeaders={groupLeaders}
           groups={groups}
+          lists={lists}
           onClose={() => setActionsOpen(false)}
           onApply={(changes) => {
             bulkUpdateVoters(Array.from(selected), changes);
@@ -698,20 +724,22 @@ type Status = { id: string; name: string; color: string };
 type GL = { id: string; firstName: string; lastName: string };
 type Grp = { id: string; name: string; groupLeaderId: string | null };
 
-function ActionsModal({ count, statuses, groupLeaders, groups, onClose, onApply }: {
+function ActionsModal({ count, statuses, groupLeaders, groups, lists, onClose, onApply }: {
   count: number;
   statuses: Status[];
   groupLeaders: GL[];
   groups: Grp[];
+  lists: { id: string; name: string }[];
   onClose: () => void;
-  onApply: (changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string }) => void;
+  onApply: (changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string; listId?: string }) => void;
 }) {
-  type Action = "status" | "voted" | "move";
+  type Action = "status" | "voted" | "move" | "list";
   const [action, setAction] = useState<Action>("status");
   const [statusId, setStatusId] = useState("");
   const [voted, setVoted] = useState<"yes" | "no">("yes");
   const [moveLeaderId, setMoveLeaderId] = useState("");
   const [moveGroupId, setMoveGroupId] = useState("");
+  const [assignListId, setAssignListId] = useState("");
   const [confirming, setConfirming] = useState(false);
 
   const leaderGroups = useMemo(
@@ -722,7 +750,8 @@ function ActionsModal({ count, statuses, groupLeaders, groups, onClose, onApply 
   const canApply =
     (action === "status" && !!statusId) ||
     (action === "voted") ||
-    (action === "move" && !!moveGroupId);
+    (action === "move" && !!moveGroupId) ||
+    (action === "list" && !!assignListId);
 
   const confirmMessage = () => {
     if (action === "status") {
@@ -731,6 +760,10 @@ function ActionsModal({ count, statuses, groupLeaders, groups, onClose, onApply 
     }
     if (action === "voted") {
       return `${count} בוחרים יסומנו כ"${voted === "yes" ? "הצביע" : "לא הצביע"}". האם להמשיך?`;
+    }
+    if (action === "list") {
+      const name = lists.find((l) => l.id === assignListId)?.name ?? "";
+      return `${count} בוחרים ישויכו לרשימה "${name}". האם להמשיך?`;
     }
     const leader = groupLeaders.find((g) => g.id === moveLeaderId);
     const grp = groups.find((g) => g.id === moveGroupId);
@@ -741,6 +774,7 @@ function ActionsModal({ count, statuses, groupLeaders, groups, onClose, onApply 
     if (action === "status") onApply({ statusId });
     else if (action === "voted") onApply({ hasVoted: voted === "yes" });
     else if (action === "move") onApply({ addToGroupId: moveGroupId });
+    else if (action === "list") onApply({ listId: assignListId });
   };
 
   const tab = (key: Action, icon: React.ReactNode, label: string) => (
@@ -766,6 +800,7 @@ function ActionsModal({ count, statuses, groupLeaders, groups, onClose, onApply 
             {tab("status", <Tag size={14} />, "שנה סטטוס")}
             {tab("voted", <Vote size={14} />, "סמן הצבעה")}
             {tab("move", <Users2 size={14} />, "העבר לראש קבוצה")}
+            {tab("list", <ClipboardList size={14} />, "שייך לרשימה")}
           </div>
 
           {action === "status" && (
@@ -808,6 +843,19 @@ function ActionsModal({ count, statuses, groupLeaders, groups, onClose, onApply 
                     <span style={{ fontSize: 13, color: "#dc2626" }}>אין קבוצות משויכות לראש קבוצה זה</span>
                   )}
                 </div>
+              )}
+            </div>
+          )}
+          {action === "list" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: "var(--gray-text)" }}>בחר רשימה</label>
+              {lists.length > 0 ? (
+                <select value={assignListId} onChange={(e) => setAssignListId(e.target.value)} style={selStyle}>
+                  <option value="">בחר רשימה...</option>
+                  {lists.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                </select>
+              ) : (
+                <span style={{ fontSize: 13, color: "#dc2626" }}>אין רשימות במערכת — צור רשימה במסך &quot;מנהלי רשימות&quot;.</span>
               )}
             </div>
           )}

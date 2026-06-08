@@ -5,7 +5,7 @@ import {
   Upload, Download, X, CheckCircle, AlertCircle, FileText, Users,
   ChevronDown, ChevronUp,
 } from "lucide-react";
-import { Voter, Group, Status } from "@/types";
+import { Voter, Group, Status, ListManager, List } from "@/types";
 import { generateId } from "@/lib/utils";
 
 // ── Field definitions ──────────────────────────────────────────────────────────
@@ -15,6 +15,8 @@ const HEADERS = [
 ];
 
 const REQUIRED = new Set(["שם פרטי", "שם משפחה", "מזהה"]);
+
+const selBox: React.CSSProperties = { width: "100%", marginTop: 3, padding: "7px 8px", border: "1.5px solid #e2e8f0", borderRadius: 7, fontSize: 12.5, color: "#374151", background: "#fff", outline: "none" };
 
 type ParsedRow = {
   rowNum: number;
@@ -151,16 +153,27 @@ export default function ImportVotersModal({
   existingVoters,
   groups,
   statuses,
+  listManagers,
+  lists,
+  onCreateList,
   onImport,
   onClose,
 }: {
   existingVoters: Voter[];
   groups: Group[];
   statuses: Status[];
+  listManagers: ListManager[];
+  lists: List[];
+  onCreateList: (name: string, managerId: string) => string; // returns the new list id
   onImport: (voters: Voter[]) => void;
   onClose: () => void;
 }) {
   const [step, setStep] = useState<"upload" | "review" | "done">("upload");
+  // Optional list assignment for the whole imported batch.
+  const [lmId, setLmId] = useState("");        // selected list manager
+  const [listMode, setListMode] = useState<"existing" | "new">("new");
+  const [existingListId, setExistingListId] = useState("");
+  const [newListName, setNewListName] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [importedCount, setImportedCount] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -266,6 +279,12 @@ export default function ImportVotersModal({
 
   const handleConfirm = () => {
     if (!result) return;
+    // Resolve the list to tag the whole batch with (optional).
+    let listId = "";
+    if (lmId) {
+      if (listMode === "existing" && existingListId) listId = existingListId;
+      else if (listMode === "new" && newListName.trim()) listId = onCreateList(newListName.trim(), lmId);
+    }
     const groupIdsByName = new Map(groups.map((g) => [g.name, g.id]));
     const statusIdByName = new Map(statuses.map((s) => [s.name, s.id]));
     const newVoters: Voter[] = result.toImport.map((r) => ({
@@ -286,6 +305,7 @@ export default function ImportVotersModal({
         .filter((id): id is string => !!id),
       statusId: r.statusName ? statusIdByName.get(r.statusName) : undefined,
       hasVoted: false,
+      ...(listId ? { listId } : {}),
     }));
     onImport(newVoters);
     setImportedCount(newVoters.length);
@@ -506,6 +526,43 @@ export default function ImportVotersModal({
                   border: "1.5px solid #fde68a", textAlign: "center", color: "#92400e", fontSize: 13,
                 }}>
                   אין בוחרים חדשים לייבוא בקובץ זה.
+                </div>
+              )}
+            </div>
+
+            {/* Optional: tag this whole batch to a list (מנהל רשימות) */}
+            <div style={{ marginTop: 14, padding: "12px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--navy)", marginBottom: 8 }}>שיוך לרשימה (אופציונלי)</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 11, color: "var(--gray-text)", fontWeight: 600 }}>מנהל רשימה</label>
+                  <select value={lmId} onChange={(e) => { setLmId(e.target.value); setExistingListId(""); setListMode("new"); }} style={selBox}>
+                    <option value="">ללא רשימה</option>
+                    {listManagers.map((m) => <option key={m.id} value={m.id}>{m.firstName} {m.lastName}</option>)}
+                  </select>
+                </div>
+                {lmId && (
+                  <div>
+                    <label style={{ fontSize: 11, color: "var(--gray-text)", fontWeight: 600 }}>רשימה</label>
+                    {listMode === "existing" ? (
+                      <select value={existingListId} onChange={(e) => setExistingListId(e.target.value)} style={selBox}>
+                        <option value="">בחר רשימה...</option>
+                        {lists.filter((l) => l.listManagerId === lmId).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                      </select>
+                    ) : (
+                      <input value={newListName} onChange={(e) => setNewListName(e.target.value)} placeholder="שם רשימה חדשה..." style={selBox} />
+                    )}
+                  </div>
+                )}
+              </div>
+              {lmId && (
+                <div style={{ marginTop: 8, display: "flex", gap: 14, fontSize: 12, color: "var(--text-secondary)" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                    <input type="radio" checked={listMode === "new"} onChange={() => setListMode("new")} /> רשימה חדשה
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}>
+                    <input type="radio" checked={listMode === "existing"} onChange={() => setListMode("existing")} /> רשימה קיימת
+                  </label>
                 </div>
               )}
             </div>

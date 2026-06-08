@@ -61,7 +61,7 @@ type StoreContextType = {
   updateVoter: (voter: Voter) => void;
   bulkUpdateVoters: (
     ids: string[],
-    changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string }
+    changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string; listId?: string }
   ) => void;
   deleteVoter: (id: string) => void;
   importVoters: (voters: Voter[]) => void;
@@ -262,13 +262,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const bulkUpdateVoters = (
     ids: string[],
-    changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string }
+    changes: { statusId?: string; hasVoted?: boolean; addToGroupId?: string; listId?: string }
   ) => {
     if (!ids.length) return;
     const idSet = new Set(ids);
-    const { statusId, hasVoted, addToGroupId } = changes;
+    const { statusId, hasVoted, addToGroupId, listId } = changes;
     const hasStatus = statusId !== undefined;
     const hasVotedChange = hasVoted !== undefined;
+    const hasList = listId !== undefined;
 
     setState((s) => {
       const voters = s.voters.map((v) => {
@@ -276,6 +277,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const next: Voter = { ...v };
         if (hasStatus) next.statusId = statusId;
         if (hasVotedChange) next.hasVoted = hasVoted;
+        if (hasList) next.listId = listId;
         if (addToGroupId && !v.groupIds.includes(addToGroupId)) {
           next.groupIds = [...v.groupIds, addToGroupId];
         }
@@ -295,6 +297,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const voterFieldUpdate: Partial<Voter> = {};
     if (hasStatus) voterFieldUpdate.statusId = statusId;
     if (hasVotedChange) voterFieldUpdate.hasVoted = hasVoted;
+    if (hasList) voterFieldUpdate.listId = listId;
 
     const chunks: string[][] = [];
     for (let i = 0; i < ids.length; i += 400) chunks.push(ids.slice(i, i + 400));

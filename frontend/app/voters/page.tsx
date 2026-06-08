@@ -57,8 +57,8 @@ const emptyVoter = (): Voter => ({
 });
 
 export default function VotersPage() {
-  const { state, addVoter, updateVoter, deleteVoter, importVoters } = useStore();
-  const { voters, groups, statuses, subGroups } = state;
+  const { state, addVoter, updateVoter, deleteVoter, importVoters, addList } = useStore();
+  const { voters, groups, statuses, subGroups, listManagers, lists } = state;
   const statusMap = useMemo(() => new Map(statuses.map(s => [s.id, s])), [statuses]);
 
   // Filters
@@ -565,6 +565,13 @@ export default function VotersPage() {
           existingVoters={voters}
           groups={groups}
           statuses={statuses}
+          listManagers={listManagers}
+          lists={lists}
+          onCreateList={(name, managerId) => {
+            const id = generateId();
+            addList({ id, name, listManagerId: managerId, importedAt: new Date().toISOString() });
+            return id;
+          }}
           onImport={(newVoters) => importVoters(newVoters)}
           onClose={() => setShowImport(false)}
         />
