@@ -518,40 +518,36 @@ export default function VotersPage() {
               </div>
               <div style={{ marginBottom: 14 }}>
                 <label className="label" style={{ marginBottom: 8 }}>שיוך לקבוצות</label>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {/* Group chips wrap horizontally so the form stays compact */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
                   {groups.map(g => {
                     const sel = form.groupIds.includes(g.id);
-                    const groupSubGroups = subGroups.filter(sg => sg.parentGroupId === g.id);
                     return (
-                      <div key={g.id}>
-                        {/* Group button */}
-                        <button type="button" onClick={() => toggleGroup(g.id)}
-                          style={{ padding: "5px 14px", borderRadius: 20, border: sel ? "2px solid var(--blue-primary)" : "1.5px solid var(--border)", background: sel ? "rgba(32,157,215,.12)" : "#fff", color: sel ? "var(--blue-primary)" : "var(--text-muted)", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: "pointer" }}>
-                          {g.name}
-                        </button>
-
-                        {/* Subgroups — shown only when parent group is selected */}
-                        {sel && groupSubGroups.length > 0 && (
-                          <div style={{ marginTop: 6, marginRight: 12, paddingRight: 12, borderRight: "2px solid rgba(32,157,215,0.25)", display: "flex", flexDirection: "column", gap: 5 }}>
-                            <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 600, marginBottom: 2 }}>תת-קבוצות</div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                              {groupSubGroups.map(sg => {
-                                const sgSel = (form.subGroupIds ?? []).includes(sg.id);
-                                return (
-                                  <button key={sg.id} type="button" onClick={() => toggleSubGroup(sg.id, g.id)}
-                                    style={{ padding: "3px 10px", borderRadius: 20, border: sgSel ? "1.5px solid #8b5cf6" : "1px dashed #cbd5e1", background: sgSel ? "rgba(139,92,246,0.1)" : "#f8fafc", color: sgSel ? "#8b5cf6" : "#94a3b8", fontWeight: sgSel ? 700 : 400, fontSize: 11, cursor: "pointer" }}>
-                                    {sg.name}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      <button key={g.id} type="button" onClick={() => toggleGroup(g.id)}
+                        style={{ padding: "5px 14px", borderRadius: 20, border: sel ? "2px solid var(--blue-primary)" : "1.5px solid var(--border)", background: sel ? "rgba(32,157,215,.12)" : "#fff", color: sel ? "var(--blue-primary)" : "var(--text-muted)", fontWeight: sel ? 700 : 400, fontSize: 13, cursor: "pointer" }}>
+                        {g.name}
+                      </button>
                     );
                   })}
                   {groups.length === 0 && <span style={{ color: "var(--text-muted)", fontSize: 13 }}>אין קבוצות</span>}
                 </div>
+                {/* Sub-groups appear below — only for selected groups that have them */}
+                {groups.filter(g => form.groupIds.includes(g.id) && subGroups.some(sg => sg.parentGroupId === g.id)).map(g => (
+                  <div key={g.id} style={{ marginTop: 8, padding: "8px 10px", background: "var(--bg)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                    <div style={{ fontSize: 10.5, color: "#94a3b8", fontWeight: 700, marginBottom: 5 }}>תת-קבוצות · {g.name}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {subGroups.filter(sg => sg.parentGroupId === g.id).map(sg => {
+                        const sgSel = (form.subGroupIds ?? []).includes(sg.id);
+                        return (
+                          <button key={sg.id} type="button" onClick={() => toggleSubGroup(sg.id, g.id)}
+                            style={{ padding: "3px 10px", borderRadius: 20, border: sgSel ? "1.5px solid #8b5cf6" : "1px dashed #cbd5e1", background: sgSel ? "rgba(139,92,246,0.1)" : "#f8fafc", color: sgSel ? "#8b5cf6" : "#94a3b8", fontWeight: sgSel ? 700 : 400, fontSize: 11, cursor: "pointer" }}>
+                            {sg.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
               <div style={{ marginBottom: 18 }}>
                 <label className="label" style={{ marginBottom: 8 }}>שיוך לרשימה</label>
