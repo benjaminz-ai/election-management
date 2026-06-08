@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useStore, getActiveTenant } from "@/lib/store";
 import { useAuth } from "@/lib/auth";
-import { ConversationLog, Voter, Group } from "@/types";
+import { ConversationLog, Voter, Group, List } from "@/types";
 import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import {
@@ -89,6 +89,37 @@ export default function FieldPage() {
     () => voters.filter((v) => v.groupIds.some((gid) => myGroupIdSet.has(gid)) || (v.listId ? myListIdSet.has(v.listId) : false)),
     [voters, myGroupIdSet, myListIdSet]
   );
+
+  // List-filter chips. Built from BOTH the lists this user manages (shown even
+  // when empty) AND the lists that actually appear among their voters — so a
+  // GROUP LEADER (who manages no lists) still gets the same sub-list filtering
+  // as a list manager: clicking a tagged list shows the relevant voters.
+  // Parents of any present sub-list are included so a parent chip aggregates
+  // its sub-lists. Output is ordered parents-first with their sub-lists under.
+  const chipLists = useMemo(() => {
+    const map = new Map<string, List>();
+    for (const l of myLists) map.set(l.id, l);
+    for (const v of myVoters) {
+      if (!v.listId) continue;
+      const l = lists.find((x) => x.id === v.listId);
+      if (!l) continue;
+      map.set(l.id, l);
+      if (l.parentListId) {
+        const p = lists.find((x) => x.id === l.parentListId);
+        if (p) map.set(p.id, p);
+      }
+    }
+    const all = Array.from(map.values());
+    const byName = (a: List, b: List) => a.name.localeCompare(b.name, "he");
+    const out: List[] = [];
+    all.filter((l) => !l.parentListId).sort(byName).forEach((top) => {
+      out.push(top);
+      all.filter((l) => l.parentListId === top.id).sort(byName).forEach((sub) => out.push(sub));
+    });
+    // Safety: sub-lists whose parent isn't in the set (shouldn't happen).
+    all.filter((l) => l.parentListId && !map.has(l.parentListId)).sort(byName).forEach((s) => out.push(s));
+    return out;
+  }, [myLists, myVoters, lists]);
 
   const defaultStatusId = useMemo(() => statuses.find((s) => s.isDefault)?.id, [statuses]);
   const getStatus = useCallback(
@@ -293,17 +324,18 @@ export default function FieldPage() {
         </div>
       )}
 
-      {/* List filter chips — for list managers (by their lists) */}
-      {myLists.length > 0 && (
+      {/* List filter chips — for list managers AND group leaders alike, built
+          from the lists tagged on their voters (chipLists). */}
+      {chipLists.length > 0 && (
         <div style={{ display: "flex", gap: 7, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
           <ClipboardList size={13} color="#f59e0b" />
-          {myLists.length > 1 && (
+          {chipLists.length > 1 && (
             <button onClick={() => setListFilter("")}
               style={{ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: listFilter === "" ? "#b45309" : "#fef3c7", color: listFilter === "" ? "#fff" : "#92610a" }}>
               כל הרשימות
             </button>
           )}
-          {myLists.map((l) => {
+          {chipLists.map((l) => {
             const active = listFilter === l.id;
             const isSub = !!l.parentListId;
             return (
