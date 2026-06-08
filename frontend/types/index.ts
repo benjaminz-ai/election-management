@@ -74,7 +74,8 @@ export type ListManager = {
 export type List = {
   id: string;
   name: string;
-  listManagerId: string;
+  listManagerId: string;       // owning manager (sub-lists inherit the parent's manager)
+  parentListId?: string;       // set on a sub-list → points to its parent list; empty = top-level list
   importedAt?: string;
   tenantId?: string;
 };

@@ -642,14 +642,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setDoc(doc(db, "lists", list.id), stamp(list)).catch(console.error);
   };
   const deleteList = (id: string) => {
-    // Detach any voter that pointed to this list.
-    const affected = stateRef.current.voters.filter((v) => v.listId === id);
+    // Deleting a list also removes its sub-lists, and detaches any voter that
+    // pointed to the list OR one of its sub-lists (they become "ללא רשימה").
+    const subIds = stateRef.current.lists.filter((l) => l.parentListId === id).map((l) => l.id);
+    const removedIds = new Set<string>([id, ...subIds]);
+    const affected = stateRef.current.voters.filter((v) => v.listId && removedIds.has(v.listId));
     setState((s) => ({
       ...s,
-      lists: s.lists.filter((l) => l.id !== id),
-      voters: s.voters.map((v) => (v.listId === id ? { ...v, listId: "" } : v)),
+      lists: s.lists.filter((l) => !removedIds.has(l.id)),
+      voters: s.voters.map((v) => (v.listId && removedIds.has(v.listId) ? { ...v, listId: "" } : v)),
     }));
-    deleteDoc(doc(db, "lists", id)).catch(console.error);
+    removedIds.forEach((lid) => deleteDoc(doc(db, "lists", lid)).catch(console.error));
     affected.forEach((v) => updateDoc(doc(db, "voters", v.id), { listId: "" }).catch(console.error));
   };
 

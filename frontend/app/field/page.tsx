@@ -114,7 +114,11 @@ export default function FieldPage() {
   const filtered = useMemo(() => {
     let list = myVoters;
     if (groupFilter) list = list.filter((v) => v.groupIds.includes(groupFilter));
-    if (listFilter) list = list.filter((v) => v.listId === listFilter);
+    if (listFilter) list = list.filter((v) => {
+      if (v.listId === listFilter) return true;                       // exact list / sub-list
+      const vl = v.listId ? lists.find((l) => l.id === v.listId) : undefined;
+      return vl?.parentListId === listFilter;                          // parent selected → include its sub-lists
+    });
     if (categoryFilter) {
       list = list.filter((v) => {
         const cat = getStatus(v)?.category;
@@ -130,7 +134,7 @@ export default function FieldPage() {
       );
     }
     return list;
-  }, [myVoters, groupFilter, categoryFilter, search, getStatus]);
+  }, [myVoters, groupFilter, listFilter, lists, categoryFilter, search, getStatus]);
 
   // Paginate the filtered list (infinite scroll) so hundreds of voters stay snappy on mobile.
   const { visible: visibleVoters, hasMore, loadMore, showing, total } = usePagination(filtered);
@@ -301,10 +305,11 @@ export default function FieldPage() {
           )}
           {myLists.map((l) => {
             const active = listFilter === l.id;
+            const isSub = !!l.parentListId;
             return (
               <button key={l.id} onClick={() => setListFilter(active ? "" : l.id)}
-                style={{ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: 600, border: "none", cursor: "pointer", background: active ? "#b45309" : "#fef3c7", color: active ? "#fff" : "#92610a" }}>
-                {l.name}
+                style={{ padding: "5px 12px", borderRadius: 20, fontSize: 12, fontWeight: isSub ? 500 : 600, border: "none", cursor: "pointer", background: active ? "#b45309" : (isSub ? "#fff7e6" : "#fef3c7"), color: active ? "#fff" : "#92610a" }}>
+                {isSub ? `↳ ${l.name}` : l.name}
               </button>
             );
           })}
@@ -327,6 +332,7 @@ export default function FieldPage() {
           {visibleVoters.map((v) => {
             const st = getStatus(v);
             const vList = v.listId ? lists.find((l) => l.id === v.listId) : undefined;
+            const vListMgr = vList ? listManagers.find((m) => m.id === vList.listManagerId) : undefined;
             return (
               <div key={v.id} onClick={() => setSelected(v)}
                 style={{ background: "#fff", border: "1px solid #eef1f5", borderRadius: 12, padding: "11px 13px", display: "flex", alignItems: "center", gap: 11, cursor: "pointer" }}>
@@ -343,7 +349,7 @@ export default function FieldPage() {
                   </div>
                   {vList && (
                     <div style={{ fontSize: 10.5, color: "#b45309", fontWeight: 600, marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}>
-                      <ClipboardList size={10} /> מקור: {vList.name}
+                      <ClipboardList size={10} /> מקור: {vList.name}{vListMgr ? ` — מנהל רשימה: ${vListMgr.firstName} ${vListMgr.lastName}` : ""}
                     </div>
                   )}
                 </div>

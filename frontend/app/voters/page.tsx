@@ -555,7 +555,9 @@ export default function VotersPage() {
                   <option value="">ללא רשימה</option>
                   {lists.map(l => {
                     const mgr = listManagers.find(m => m.id === l.listManagerId);
-                    return <option key={l.id} value={l.id}>{l.name}{mgr ? ` — ${mgr.firstName} ${mgr.lastName}` : ""}</option>;
+                    const parent = l.parentListId ? lists.find(p => p.id === l.parentListId) : undefined;
+                    const label = (parent ? `${parent.name} › ${l.name}` : l.name) + (mgr ? ` — מנהל: ${mgr.firstName}` : "");
+                    return <option key={l.id} value={l.id}>{label}</option>;
                   })}
                 </select>
               </div>

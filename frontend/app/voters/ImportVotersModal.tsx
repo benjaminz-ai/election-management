@@ -551,7 +551,10 @@ export default function ImportVotersModal({
                     {listMode === "existing" ? (
                       <select value={existingListId} onChange={(e) => setExistingListId(e.target.value)} style={selBox}>
                         <option value="">בחר רשימה...</option>
-                        {lists.filter((l) => l.listManagerId === lmId).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+                        {lists.filter((l) => l.listManagerId === lmId).map((l) => {
+                          const parent = l.parentListId ? lists.find((p) => p.id === l.parentListId) : undefined;
+                          return <option key={l.id} value={l.id}>{parent ? `${parent.name} › ${l.name}` : l.name}</option>;
+                        })}
                       </select>
                     ) : (
                       <input value={newListName} onChange={(e) => setNewListName(e.target.value)} placeholder="שם רשימה חדשה..." style={selBox} />
