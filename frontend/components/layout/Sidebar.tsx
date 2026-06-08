@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import {
   LayoutDashboard, Users, UsersRound, UserCheck, Shield, Search, Tag,
   PhoneCall, MessageSquareMore, UserCog, LogOut, Snowflake, BarChart3,
-  X, ChevronRight, ChevronLeft, Bell, Contact, Building2, Activity, Pencil, Camera, Share2,
+  X, ChevronRight, ChevronLeft, Bell, Contact, Building2, Activity, Pencil, Camera, Share2, ClipboardList,
 } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { isFieldRole, canAccess } from "@/lib/permissions";
@@ -18,7 +18,7 @@ interface SidebarProps {
 
 const ROLE_LABELS: Record<string, string> = {
   admin: "מנהל מערכת", field: "שטח", telemarketing: "טלמרקטינג",
-  group_leader: "ראש קבוצה", division_head: "ראש אגף",
+  group_leader: "ראש קבוצה", division_head: "ראש אגף", list_manager: "מנהל רשימות",
 };
 
 const commonLinks = [
@@ -28,6 +28,7 @@ const commonLinks = [
   { href: "/groups",        label: "קבוצות",          icon: UsersRound },
   { href: "/group-leaders", label: "ראשי קבוצה",     icon: UserCheck },
   { href: "/division-heads",label: "ראשי אגף",       icon: Shield },
+  { href: "/list-managers", label: "מנהלי רשימות",   icon: ClipboardList },
   { href: "/reports",       label: "דוחות",           icon: BarChart3 },
   { href: "/reminders",     label: "התזכורות שלי",    icon: Bell },
   { href: "/shares",        label: "שיתופים",         icon: Share2 },

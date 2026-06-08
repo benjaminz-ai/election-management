@@ -17,6 +17,7 @@ export type Voter = {
   lastCallStatusId?: string;
   hasVoted?: boolean;
   importedAt?: string;   // ISO timestamp stamped at import time (same for a whole import batch); empty for manually-added voters
+  listId?: string;       // which list (מנהל רשימות) brought this voter; independent of groupIds; empty = no list
 };
 
 export type SubGroup = {
@@ -53,6 +54,29 @@ export type DivisionHead = {
   phone: string;
   email: string;
   groupLeaderIds: string[];
+};
+
+// A "list manager" (מנהל רשימות) sits under group leaders and brings lists of
+// voters. They log in (role "list_manager", linked by email) and see only the
+// voters from their own lists — across whatever groups those voters belong to.
+export type ListManager = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  uniqueId: string;
+  phone: string;
+  email: string;
+  tenantId?: string;
+};
+
+// A named list a manager brought (e.g. a large family). One manager may own
+// several lists. A voter points to a single list via Voter.listId.
+export type List = {
+  id: string;
+  name: string;
+  listManagerId: string;
+  importedAt?: string;
+  tenantId?: string;
 };
 
 export type StatusCategory = "supporter" | "opponent" | "undecided" | "neutral";
@@ -106,7 +130,7 @@ export type CallShare = {
   createdAt: string;
 };
 
-export type UserRole = "admin" | "field" | "telemarketing" | "group_leader" | "division_head";
+export type UserRole = "admin" | "field" | "telemarketing" | "group_leader" | "division_head" | "list_manager";
 
 export type AppUser = {
   id: string;
@@ -141,4 +165,6 @@ export type AppState = {
   callStatuses: CallStatus[];
   users: AppUser[];
   reminders: Reminder[];
+  listManagers: ListManager[];
+  lists: List[];
 };

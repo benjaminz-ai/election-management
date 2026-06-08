@@ -8,7 +8,7 @@ import { auth } from "@/lib/firebase";
 import { AppUser, UserRole } from "@/types";
 import { generateId } from "@/lib/utils";
 import PageHeader from "@/components/ui/PageHeader";
-import { Plus, Pencil, Snowflake, PlayCircle, Users, Phone, Mail, Eye, EyeOff, Search, X, ShieldCheck, Briefcase, Headphones, UserCheck, Shield } from "lucide-react";
+import { Plus, Pencil, Snowflake, PlayCircle, Users, Phone, Mail, Eye, EyeOff, Search, X, ShieldCheck, Briefcase, Headphones, UserCheck, Shield, ClipboardList } from "lucide-react";
 import { usePagination } from "@/hooks/usePagination";
 import ScrollSentinel from "@/components/ui/ScrollSentinel";
 import PaginationFooter from "@/components/ui/PaginationFooter";
@@ -19,6 +19,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
   telemarketing: "טלמרקטינג",
   group_leader: "ראש קבוצה",
   division_head: "ראש אגף",
+  list_manager: "מנהל רשימות",
 };
 
 const ROLE_BADGE: Record<UserRole, string> = {
@@ -27,6 +28,7 @@ const ROLE_BADGE: Record<UserRole, string> = {
   telemarketing: "badge-blue",
   group_leader: "badge-purple",
   division_head: "badge-yellow",
+  list_manager: "badge-orange",
 };
 
 const ROLE_ICONS: Record<UserRole, React.ReactNode> = {
@@ -35,6 +37,7 @@ const ROLE_ICONS: Record<UserRole, React.ReactNode> = {
   telemarketing: <Headphones size={13} />,
   group_leader: <UserCheck size={13} />,
   division_head: <Shield size={13} />,
+  list_manager: <ClipboardList size={13} />,
 };
 
 const emptyUser = (): Omit<AppUser, "id" | "createdAt" | "isFrozen"> => ({
@@ -47,9 +50,9 @@ const emptyUser = (): Omit<AppUser, "id" | "createdAt" | "isFrozen"> => ({
 });
 
 export default function UsersPage() {
-  const { state, freezeUser, refreshUsers, addGroupLeader, addDivisionHead } = useStore();
+  const { state, freezeUser, refreshUsers, addGroupLeader, addDivisionHead, addListManager } = useStore();
   const { currentUser } = useAuth();
-  const { users, groupLeaders, divisionHeads } = state;
+  const { users, groupLeaders, divisionHeads, listManagers } = state;
   const isAdmin = currentUser?.role === "admin";
   const router = useRouter();
 
@@ -107,6 +110,10 @@ export default function UsersPage() {
     } else if (role === "division_head") {
       if (!divisionHeads.some((dh) => (dh.email || "").trim().toLowerCase() === key)) {
         addDivisionHead({ id: generateId(), firstName, lastName, uniqueId: "", phone, email, groupLeaderIds: [] });
+      }
+    } else if (role === "list_manager") {
+      if (!listManagers.some((lm) => (lm.email || "").trim().toLowerCase() === key)) {
+        addListManager({ id: generateId(), firstName, lastName, uniqueId: "", phone, email });
       }
     }
   };

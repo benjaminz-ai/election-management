@@ -8,7 +8,7 @@ import React, {
   useRef,
   ReactNode,
 } from "react";
-import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, AppUser, Reminder } from "@/types";
+import { AppState, Voter, Group, SubGroup, GroupLeader, DivisionHead, Status, CallStatus, AppUser, Reminder, ListManager, List } from "@/types";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import {
@@ -77,6 +77,12 @@ type StoreContextType = {
   addDivisionHead: (dh: DivisionHead) => void;
   updateDivisionHead: (dh: DivisionHead) => void;
   deleteDivisionHead: (id: string) => void;
+  addListManager: (lm: ListManager) => void;
+  updateListManager: (lm: ListManager) => void;
+  deleteListManager: (id: string) => void;
+  addList: (list: List) => void;
+  updateList: (list: List) => void;
+  deleteList: (id: string) => void;
   addStatus: (status: Status) => void;
   updateStatus: (status: Status) => void;
   deleteStatus: (id: string) => void;
@@ -107,15 +113,17 @@ const EMPTY_STATE: AppState = {
   callStatuses: [],
   users: [],
   reminders: [],
+  listManagers: [],
+  lists: [],
 };
 
 async function loadFromFirestore(tid: string): Promise<AppState> {
   // Scope every collection to the active tenant (company).
   const q = (name: string) => getDocs(query(collection(db, name), where("tenantId", "==", tid)));
-  const [votersSnap, groupsSnap, subGroupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap, remindersSnap] =
+  const [votersSnap, groupsSnap, subGroupsSnap, glSnap, dhSnap, statusesSnap, callStatusesSnap, usersSnap, remindersSnap, listManagersSnap, listsSnap] =
     await Promise.all([
       q("voters"), q("groups"), q("subGroups"), q("groupLeaders"), q("divisionHeads"),
-      q("statuses"), q("callStatuses"), q("users"), q("reminders"),
+      q("statuses"), q("callStatuses"), q("users"), q("reminders"), q("listManagers"), q("lists"),
     ]);
 
   const voters = votersSnap.docs.map((d: { data(): unknown }) => d.data() as Voter);
@@ -127,6 +135,8 @@ async function loadFromFirestore(tid: string): Promise<AppState> {
   const callStatuses = callStatusesSnap.docs.map((d: { data(): unknown }) => d.data() as CallStatus);
   const users = usersSnap.docs.map((d: { data(): unknown }) => d.data() as AppUser);
   const reminders = remindersSnap.docs.map((d: { data(): unknown }) => d.data() as Reminder);
+  const listManagers = listManagersSnap.docs.map((d: { data(): unknown }) => d.data() as ListManager);
+  const lists = listsSnap.docs.map((d: { data(): unknown }) => d.data() as List);
 
   return {
     voters,
@@ -138,6 +148,8 @@ async function loadFromFirestore(tid: string): Promise<AppState> {
     callStatuses,
     users,
     reminders,
+    listManagers,
+    lists,
   };
 }
 
@@ -601,6 +613,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     deleteDoc(doc(db, "divisionHeads", id)).catch(console.error);
   };
 
+  // ── List Managers (מנהלי רשימות) ──────────────────────────────────────────────
+
+  const addListManager = (lm: ListManager) => {
+    setState((s) => ({ ...s, listManagers: [...s.listManagers, lm] }));
+    setDoc(doc(db, "listManagers", lm.id), stamp(lm)).catch(console.error);
+  };
+  const updateListManager = (lm: ListManager) => {
+    setState((s) => ({ ...s, listManagers: s.listManagers.map((m) => (m.id === lm.id ? lm : m)) }));
+    setDoc(doc(db, "listManagers", lm.id), stamp(lm)).catch(console.error);
+  };
+  const deleteListManager = (id: string) => {
+    setState((s) => ({ ...s, listManagers: s.listManagers.filter((m) => m.id !== id) }));
+    deleteDoc(doc(db, "listManagers", id)).catch(console.error);
+  };
+
+  // ── Lists (רשימות) ────────────────────────────────────────────────────────────
+
+  const addList = (list: List) => {
+    setState((s) => ({ ...s, lists: [...s.lists, list] }));
+    setDoc(doc(db, "lists", list.id), stamp(list)).catch(console.error);
+  };
+  const updateList = (list: List) => {
+    setState((s) => ({ ...s, lists: s.lists.map((l) => (l.id === list.id ? list : l)) }));
+    setDoc(doc(db, "lists", list.id), stamp(list)).catch(console.error);
+  };
+  const deleteList = (id: string) => {
+    // Detach any voter that pointed to this list.
+    const affected = stateRef.current.voters.filter((v) => v.listId === id);
+    setState((s) => ({
+      ...s,
+      lists: s.lists.filter((l) => l.id !== id),
+      voters: s.voters.map((v) => (v.listId === id ? { ...v, listId: "" } : v)),
+    }));
+    deleteDoc(doc(db, "lists", id)).catch(console.error);
+    affected.forEach((v) => updateDoc(doc(db, "voters", v.id), { listId: "" }).catch(console.error));
+  };
+
   // ── Statuses ──────────────────────────────────────────────────────────────────
 
   const addStatus = (status: Status) => {
@@ -781,6 +830,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addDivisionHead,
         updateDivisionHead,
         deleteDivisionHead,
+        addListManager,
+        updateListManager,
+        deleteListManager,
+        addList,
+        updateList,
+        deleteList,
         addStatus,
         updateStatus,
         deleteStatus,

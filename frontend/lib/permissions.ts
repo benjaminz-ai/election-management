@@ -2,7 +2,7 @@ import { UserRole } from "@/types";
 
 // Roles that get the focused, read-only "my people" field experience.
 // They are restricted to a small set of screens (see FIELD_ALLOWED).
-const FIELD_ROLES: UserRole[] = ["field", "group_leader", "division_head"];
+const FIELD_ROLES: UserRole[] = ["field", "group_leader", "division_head", "list_manager"];
 
 // Screens a field-type user may reach. They get ONLY the read-only
 // "my people" screen — no telemarketing (editing) and no global search.

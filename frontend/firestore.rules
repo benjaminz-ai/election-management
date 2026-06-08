@@ -38,6 +38,8 @@ service cloud.firestore {
     match /subGroups/{id}        { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
     match /groupLeaders/{id}     { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
     match /divisionHeads/{id}    { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /listManagers/{id}     { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
+    match /lists/{id}            { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
     match /statuses/{id}         { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
     match /callStatuses/{id}     { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
     match /conversationLogs/{id} { allow read: if canRead(); allow create: if canCreate(); allow update: if canUpdate(); allow delete: if canDelete(); }
